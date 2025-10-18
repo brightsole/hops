@@ -44,7 +44,7 @@
     "envalid": "^8.1.0",
     "express": "^5.1.0",
     "graphql": "^16.11.0",
-    "graphql-scalars": "^1.18.0",
+    "graphql-scalars": "^1.25.0",
     "graphql-tag": "^2.12.6",
     "nanoid": "^5.1.6"
   }
