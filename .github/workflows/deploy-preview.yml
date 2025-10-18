@@ -1,0 +1,49 @@
+name: Deploy preview environment
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SST_STAGE: preview
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache SST build artifacts
+        uses: actions/cache@v4
+        with:
+          path: .sst
+          key: ${{ runner.os }}-sst-${{ env.SST_STAGE }}-${{ github.ref_name }}
+          restore-keys: |
+            ${{ runner.os }}-sst-${{ env.SST_STAGE }}-
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Deploy SST stack
+        run: npx sst deploy --stage $SST_STAGE

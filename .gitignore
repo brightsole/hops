@@ -1,0 +1,11 @@
+.DS_Store
+node_modules
+.nyc_output
+coverage
+*.lcov
+.cache
+*.log
+dist
+bin
+.build
+.sst
