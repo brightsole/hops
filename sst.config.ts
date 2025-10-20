@@ -3,27 +3,35 @@
 export default $config({
   app(input) {
     return {
-      name: 'items-service',
+      name: 'hops-service',
       removal: input?.stage === 'production' ? 'retain' : 'remove',
       protect: input?.stage === 'production',
       home: 'aws',
     };
   },
   async run() {
-    const itemsTable = new sst.aws.Dynamo('Items', {
+    const hopsTable = new sst.aws.Dynamo('Hops', {
       fields: {
         id: 'string',
+        gameId: 'string',
+        hopKey: 'string',
         ownerId: 'string',
+        attemptId: 'string',
+        associations: 'string',
+      },
+      globalIndexes: {
+        hopKey: { hashKey: 'hopKey' },
+        gameId: { hashKey: 'gameId' },
+        ownerId: { hashKey: 'ownerId' },
+        attemptId: { hashKey: 'attemptId' },
+        associations: { hashKey: 'associations' },
       },
       primaryIndex: { hashKey: 'id' },
-      globalIndexes: {
-        ownerId: { hashKey: 'ownerId' },
-      },
       deletionProtection: $app.stage === 'production',
     });
 
     const api = new sst.aws.ApiGatewayV2('Api', {
-      link: [itemsTable],
+      link: [hopsTable],
     });
 
     // new sst.aws.Cron('KeepWarmCron', {
@@ -39,15 +47,15 @@ export default $config({
     // });
 
     // Store the API URL as a CloudFormation output for federation lookup
-    new aws.ssm.Parameter('ItemsApiUrl', {
+    new aws.ssm.Parameter('HopsApiUrl', {
       name: `/sst/${$app.name}/${$app.stage}/api-url`,
       type: 'String',
       value: api.url,
       description: `API Gateway URL for ${$app.name} ${$app.stage}`,
     });
     // roughly how to get the api url in fed gateway:
-    // const itemsApiUrl = await aws.ssm.getParameter({
-    //   name: `/sst/items-service/${$app.stage}/api-url`,
+    // const hopsApiUrl = await aws.ssm.getParameter({
+    //   name: `/sst/hops-service/${$app.stage}/api-url`,
     // });
     // then you put it into the environment below
 
@@ -59,7 +67,7 @@ export default $config({
         format: 'esm',
       },
       environment: {
-        TABLE_NAME: itemsTable.name,
+        TABLE_NAME: hopsTable.name,
       },
     } as const;
 
@@ -80,7 +88,7 @@ export default $config({
 
     return {
       apiUrl: api.url,
-      usersTableName: itemsTable.name,
+      hopsTableName: hopsTable.name,
     };
   },
 });

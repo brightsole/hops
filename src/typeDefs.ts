@@ -14,33 +14,62 @@ export default gql`
     ok: Boolean!
   }
 
-  type Item @key(fields: "id") {
+  type Hop @key(fields: "id") {
     id: ID!
     name: String
-    description: String
+    from: String
+    to: String
+    associations: String
+    attemptId: String
+    ownerId: String
+    gameId: String
+    hopKey: String
     createdAt: DateTime
     updatedAt: DateTime
   }
 
-  input UpdateItemInput {
-    id: String!
-    name: String
+  input UserInfo {
+    attemptId: String!
     ownerId: String!
-    description: String
+    gameId: String!
   }
 
-  input QueryObject {
+  input Association {
+    type: String!
+    score: Float
+  }
+
+  input Link {
+    name: ID!
+    associations: [Association!]!
+  }
+
+  input Word {
+    name: ID!
+    links: [Link!]!
+  }
+
+  input AttemptHopInput {
+    from: Word!
+    to: Word!
+    final: Word!
+  }
+
+  input HopQueryInput {
     ownerId: String
+    gameId: String
+    attemptId: String
+    hopKey: String
+    associations: String
   }
 
   type Query {
-    item(id: ID!): Item
-    items(query: QueryObject!): [Item]
+    hop(id: ID!): Hop
+    hops(query: HopQueryInput!): [Hop]
   }
 
   type Mutation {
-    updateItem(input: UpdateItemInput!): Item
-    createItem(name: String, description: String): Item
-    deleteItem(id: String!): Affirmative
+    attemptHop(input: AttemptHopInput!, userInfo: UserInfo!): Hop
+    deleteHops(ids: [String!]!): Affirmative
   }
 `;

@@ -1,7 +1,7 @@
 {
-  "name": "item",
+  "name": "hops",
   "version": "0.0.0",
-  "description": "item lambda graphql crud with sst and dynamoose",
+  "description": "hops lambda graphql crud with sst and dynamoose",
   "keywords": [
     "package",
     "sst",
@@ -10,7 +10,7 @@
     "lambda",
     "crud"
   ],
-  "repository": "git@github.com:brightsole/solosis-sst.git",
+  "repository": "git@github.com:brightsole/hops.git",
   "author": "Drew Showalter <maelstroswim@gmail.com>",
   "license": "MIT",
   "scripts": {

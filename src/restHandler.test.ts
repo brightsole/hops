@@ -1,9 +1,9 @@
 import http from 'node:http';
 import { nanoid } from 'nanoid';
-import { startController } from './itemController';
+import { startController } from './controller';
 import { createRestApp } from './restHandler';
 
-jest.mock('./itemController', () => ({
+jest.mock('./controller', () => ({
   startController: jest.fn(),
 }));
 
@@ -12,17 +12,17 @@ const mockStartController = jest.mocked(startController);
 const createControllerDouble = (
   overrides: Partial<ReturnType<typeof startController>>,
 ): ReturnType<typeof startController> => ({
-  create: jest.fn().mockRejectedValue('unexpected create'),
+  attemptHop: jest.fn().mockRejectedValue('unexpected attemptHop'),
   getById: jest.fn().mockRejectedValue('unexpected getById'),
-  listByOwner: jest.fn().mockRejectedValue('unexpected listByOwner'),
-  update: jest.fn().mockRejectedValue('unexpected update'),
-  remove: jest.fn().mockRejectedValue('unexpected remove'),
+  query: jest.fn().mockRejectedValue('unexpected query'),
+  getMany: jest.fn().mockRejectedValue('unexpected getMany'),
+  removeMany: jest.fn().mockRejectedValue('unexpected removeMany'),
   ...overrides,
 });
 
 describe('REST handler', () => {
-  it('creates an item without error', async () => {
-    const create = jest.fn().mockResolvedValue({
+  it('gets an item without error', async () => {
+    const getById = jest.fn().mockResolvedValue({
       id: nanoid(),
       name: 'threeve',
       description: 'A combination of three and five; simply stunning',
@@ -31,7 +31,7 @@ describe('REST handler', () => {
       updatedAt: new Date(),
     });
 
-    mockStartController.mockReturnValue(createControllerDouble({ create }));
+    mockStartController.mockReturnValue(createControllerDouble({ getById }));
 
     const app = createRestApp();
     const server = http.createServer(app);
@@ -42,11 +42,6 @@ describe('REST handler', () => {
     if (!serverAddress || typeof serverAddress === 'string')
       throw new Error('Server failed to start');
 
-    const payload = JSON.stringify({
-      name: 'threeve',
-      description: 'A combination of three and five; simply stunning',
-    });
-
     try {
       const response = await new Promise<{ status: number; body: string }>(
         (resolve, reject) => {
@@ -54,11 +49,9 @@ describe('REST handler', () => {
             {
               hostname: '127.0.0.1',
               port: serverAddress.port,
-              path: '/items',
-              method: 'POST',
+              path: '/hops/threeve',
+              method: 'GET',
               headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload),
                 id: 'owner-1',
               },
             },
@@ -75,12 +68,11 @@ describe('REST handler', () => {
           );
 
           req.on('error', reject);
-          req.write(payload);
           req.end();
         },
       );
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
 
       const data = JSON.parse(response.body);
       expect(data).toEqual(
@@ -91,13 +83,7 @@ describe('REST handler', () => {
           ownerId: 'owner-1',
         }),
       );
-      expect(create).toHaveBeenCalledWith(
-        {
-          name: 'threeve',
-          description: 'A combination of three and five; simply stunning',
-        },
-        'owner-1',
-      );
+      expect(getById).toHaveBeenCalledWith('threeve');
     } finally {
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),

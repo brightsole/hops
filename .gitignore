@@ -1,11 +1,12 @@
-.DS_Store
 node_modules
 .nyc_output
+.DS_Store
 coverage
+.vscode
 *.lcov
+.build
 .cache
 *.log
+.sst
 dist
 bin
-.build
-.sst

@@ -1,10 +1,10 @@
 import serverlessExpress from '@vendia/serverless-express';
 import express from 'express';
-import { startController } from './itemController';
+import { startController } from './controller';
 
 export const createRestApp = () => {
   const app = express();
-  const itemController = startController();
+  const hopsController = startController();
 
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -22,34 +22,26 @@ export const createRestApp = () => {
 
   app.use(express.json());
 
-  app.get('/items/:id', async (req, res) => {
-    const item = await itemController.getById(req.params.id);
-    res.json(item);
+  app.get('/hops/:id', async (req, res) => {
+    const hop = await hopsController.getById(req.params.id);
+    res.json(hop);
   });
 
-  app.get('/items', async (req, res) => {
-    const ownerId = req.query.ownerId || req.header('id');
-
-    const items = await itemController.listByOwner(ownerId as string);
-    res.json(items);
+  app.get('/hops', async (req, res) => {
+    // get many by ids is more of a gql use case
+    const hops = await hopsController.query(req.query);
+    res.json(hops);
   });
 
-  app.post('/items', async (req, res) => {
-    const item = await itemController.create(req.body, req.header('id'));
-    res.status(201).json(item);
-  });
-
-  app.put('/items/:id', async (req, res) => {
-    const item = await itemController.update(
-      { id: req.params.id, ...req.body },
-      req.header('id'),
-    );
-
-    res.json(item);
-  });
-
-  app.delete('/items/:id', async (req, res) => {
-    const result = await itemController.remove(req.params.id, req.header('id'));
+  app.delete('/hops', async (req, res) => {
+    if (
+      !Array.isArray(req.query.ids) ||
+      req.query.ids.some((id) => typeof id !== 'string')
+    ) {
+      res.status(400).json({ error: 'ids query parameter must be an array' });
+      return;
+    }
+    const result = await hopsController.removeMany(req.query.ids as string[]);
     res.json(result);
   });
 

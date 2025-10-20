@@ -17,6 +17,7 @@ export const createGraphqlServer = () =>
         resolvers,
       },
     ]),
+    introspection: true,
     maxRecursiveSelections: 7,
     plugins: [ApolloServerPluginInlineTraceDisabled()],
   });

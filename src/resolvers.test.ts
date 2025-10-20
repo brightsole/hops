@@ -1,262 +1,185 @@
-import { startController } from './itemController';
 import resolvers from './resolvers';
-import { Item } from './types';
+import type { Hop as HopType, Word } from './types';
 
-const { Query, Mutation } = resolvers;
+const { Query, Mutation, Hop } = resolvers;
 
-const defaultItem: Item = {
+const defaultHop: HopType = {
   id: 'niner',
   ownerId: 'owner',
-  name: 'Niner',
-  description: 'My favorite number',
+  associations: 'rhymes',
+  attemptId: 'attempt-1',
+  gameId: 'game-1',
+  hopKey: 'alpha::beta',
+  from: 'alpha',
+  to: 'beta',
   createdAt: Date.now(),
   updatedAt: Date.now(),
 };
 
-const createItemControllerMock = (
-  overrides: Partial<ReturnType<typeof startController>> = {},
-): ReturnType<typeof startController> => ({
-  getById: jest.fn().mockResolvedValue(undefined),
-  listByOwner: jest.fn().mockResolvedValue([]),
-  create: jest.fn().mockResolvedValue(defaultItem),
-  update: jest.fn().mockResolvedValue(defaultItem),
-  remove: jest.fn().mockResolvedValue({ ok: true }),
+const baseContextValues = {
+  attemptId: 'attempt-1',
+  ownerId: 'owner',
+  gameId: 'game-1',
+  event: { requestContext: { requestId: 'req-1' } },
+};
+
+type HopControllerMock = {
+  attemptHop: jest.Mock;
+  getById: jest.Mock;
+  getMany: jest.Mock;
+  query: jest.Mock;
+  removeMany: jest.Mock;
+};
+
+const createHopControllerMock = (
+  overrides: Partial<HopControllerMock> = {},
+): HopControllerMock => ({
+  attemptHop: jest.fn().mockRejectedValue(new Error('unexpected attemptHop')),
+  getById: jest.fn().mockRejectedValue(new Error('unexpected getById')),
+  getMany: jest.fn().mockRejectedValue(new Error('unexpected getMany')),
+  query: jest.fn().mockRejectedValue(new Error('unexpected query')),
+  removeMany: jest.fn().mockRejectedValue(new Error('unexpected removeMany')),
   ...overrides,
 });
 
-describe('Resolvers', () => {
-  describe('Queries', () => {
-    describe('item(id): Item', () => {
-      it('fetches an item given an id', async () => {
-        const itemController = createItemControllerMock({
-          getById: jest.fn().mockResolvedValue({ id: 'niner' }),
-        });
+const makeWord = (name: string): Word => ({
+  name,
+  cacheExpiryDate: Date.now(),
+  updatedAt: Date.now(),
+  version: 1,
+  links: [{ name: `${name}-link`, associations: [] }],
+});
 
-        const item = await Query.item(
-          undefined,
-          { id: 'niner' },
-          { itemController, event: {} },
-        );
-        expect(item).toEqual({ id: 'niner' });
-        expect(itemController.getById).toHaveBeenCalledWith('niner');
+describe('Query', () => {
+  describe('hop', () => {
+    it('fetches a hop by id', async () => {
+      const hopController = createHopControllerMock({
+        getById: jest.fn().mockResolvedValue({ id: 'niner' }),
       });
+      const context = { ...baseContextValues, hopController };
 
-      it('returns undefined when fetching something nonexistent', async () => {
-        const itemController = createItemControllerMock({
-          getById: jest.fn().mockResolvedValue(undefined),
-        });
+      const hop = await Query.hop(undefined, { id: 'niner' }, context);
 
-        const item = await Query.item(
-          undefined,
-          { id: 'niner' },
-          { itemController, event: {} },
-        );
-        expect(item).toEqual(undefined);
-      });
-
-      it("allows you to grab someone else's item", async () => {
-        const itemController = createItemControllerMock({
-          getById: jest
-            .fn()
-            .mockResolvedValue({ id: 'niner', owner: 'not-you' }),
-        });
-
-        const item = await Query.item(
-          undefined,
-          { id: 'niner' },
-          { itemController, event: {} },
-        );
-        expect(item).toEqual({ id: 'niner', owner: 'not-you' });
-      });
+      expect(hop).toEqual({ id: 'niner' });
+      expect(hopController.getById).toHaveBeenCalledWith('niner');
     });
 
-    describe('items(id): Item[]', () => {
-      it('fetches all items of a given ownerId', async () => {
-        const results = [
-          { id: 'niner', owner: 'you' },
-          { id: 'five', owner: 'you' },
-        ];
-        const itemController = createItemControllerMock({
-          listByOwner: jest.fn().mockResolvedValue(results),
-        });
-
-        const items = await Query.items(
-          undefined,
-          { query: { ownerId: 'you' } },
-          { itemController, event: {} },
-        );
-        expect(items).toEqual(results);
-        expect(itemController.listByOwner).toHaveBeenCalledWith('you');
+    it('returns undefined when no hop exists', async () => {
+      const hopController = createHopControllerMock({
+        getById: jest.fn().mockResolvedValue(undefined),
       });
+      const context = { ...baseContextValues, hopController };
 
-      it('returns nothing if it is given an unused ownerId', async () => {
-        const itemController = createItemControllerMock({
-          listByOwner: jest.fn().mockResolvedValue([]),
-        });
+      const hop = await Query.hop(undefined, { id: 'ghost' }, context);
 
-        const items = await Query.items(
-          undefined,
-          { query: { ownerId: 'nonexistent' } },
-          { itemController, event: {} },
-        );
-        expect(items).toEqual([]);
-      });
-
-      it("allows you to grab someone else's items", async () => {
-        const results = [
-          { id: 'niner', owner: 'not-you' },
-          { id: 'five', owner: 'not-you' },
-        ];
-        const itemController = createItemControllerMock({
-          listByOwner: jest.fn().mockResolvedValue(results),
-        });
-
-        const items = await Query.items(
-          undefined,
-          { query: { ownerId: 'not-you' } },
-          { itemController, event: {} },
-        );
-        expect(items).toEqual(results);
-      });
+      expect(hop).toBeUndefined();
     });
   });
 
-  describe('Mutations', () => {
-    describe('createItem(name, description): Item', () => {
-      it('creates an item when given good info', async () => {
-        const create = jest.fn().mockResolvedValue(defaultItem);
-        const itemController = createItemControllerMock({ create });
-
-        const item = await Mutation.createItem(
-          undefined,
-          { name: 'Niner', description: 'My favorite number' },
-          { itemController, event: {}, ownerId: 'yourself' },
-        );
-        expect(item).toEqual(defaultItem);
-        expect(create).toHaveBeenCalledWith(
-          { name: 'Niner', description: 'My favorite number' },
-          'yourself',
-        );
+  describe('hops', () => {
+    it('delegates to the controller with the provided filter', async () => {
+      const results = [
+        { id: 'niner', ownerId: 'owner' },
+        { id: 'five', ownerId: 'owner' },
+      ];
+      const filter = { ownerId: 'owner', gameId: 'game-1' };
+      const hopController = createHopControllerMock({
+        query: jest.fn().mockResolvedValue(results),
       });
+      const context = { ...baseContextValues, hopController };
 
-      it('explodes if not logged in, because orphan items are verboten', async () => {
-        const create = jest.fn().mockRejectedValue(new Error('Unauthorized'));
-        const itemController = createItemControllerMock({ create });
+      const hops = await Query.hops(undefined, { query: filter }, context);
 
-        await expect(
-          Mutation.createItem(
-            undefined,
-            { name: 'Niner', description: 'My favorite number' },
-            { itemController, event: {} },
-          ),
-        ).rejects.toThrow('Unauthorized');
-      });
+      expect(hops).toEqual(results);
+      expect(hopController.query).toHaveBeenCalledWith(filter);
     });
 
-    describe('updateItem(name, description): Item', () => {
-      it('updates an item when given good info', async () => {
-        const update = jest.fn().mockResolvedValue(defaultItem);
-        const itemController = createItemControllerMock({ update });
-
-        const item = await Mutation.updateItem(
-          undefined,
-          {
-            input: {
-              id: 'niner',
-              name: 'Niner',
-              description: 'My favorite number',
-            },
-          },
-          { itemController, event: {}, ownerId: 'yourself' },
-        );
-        expect(item).toEqual(defaultItem);
-        expect(update).toHaveBeenCalledWith(
-          {
-            id: 'niner',
-            name: 'Niner',
-            description: 'My favorite number',
-          },
-          'yourself',
-        );
+    it('bubbles empty results through untouched', async () => {
+      const hopController = createHopControllerMock({
+        query: jest.fn().mockResolvedValue([]),
       });
+      const context = { ...baseContextValues, hopController };
 
-      it('explodes if no match for id, because its a required property', async () => {
-        const update = jest
-          .fn()
-          .mockRejectedValue(
-            new Error('Item deleted or owned by another user'),
-          );
-        const itemController = createItemControllerMock({ update });
+      const hops = await Query.hops(
+        undefined,
+        { query: { ownerId: 'ghost' } },
+        context,
+      );
 
-        await expect(
-          Mutation.updateItem(
-            undefined,
-            {
-              input: {
-                id: 'niner',
-                name: 'Niner',
-                description: 'My favorite number',
-              },
-            },
-            { itemController, event: {}, ownerId: 'yourself' },
-          ),
-        ).rejects.toThrow('Item deleted or owned by another user');
-      });
+      expect(hops).toEqual([]);
+    });
+  });
+});
 
-      it("never lets you overwrite another user's item because auth sets ownerId", async () => {
-        const update = jest
-          .fn()
-          .mockRejectedValue(
-            new Error('Item deleted or owned by another user'),
-          );
-        const itemController = createItemControllerMock({ update });
+describe('Mutation', () => {
+  describe('attemptHop', () => {
+    const hopInput = {
+      from: makeWord('alpha'),
+      to: makeWord('beta'),
+      final: makeWord('gamma'),
+    };
 
-        await expect(
-          Mutation.updateItem(
-            undefined,
-            {
-              input: {
-                id: 'niner',
-                name: 'Niner',
-                description: 'My favorite number',
-              },
-            },
-            { itemController, event: {}, ownerId: 'yourself' },
-          ),
-        ).rejects.toThrow('Item deleted or owned by another user');
-      });
+    it('invokes the controller with hop input and context metadata', async () => {
+      const attemptHop = jest.fn().mockResolvedValue(defaultHop);
+      const hopController = createHopControllerMock({ attemptHop });
+      const context = { ...baseContextValues, hopController };
+
+      const hop = await Mutation.attemptHop(undefined, hopInput, context);
+
+      expect(hop).toBe(defaultHop);
+      expect(attemptHop).toHaveBeenCalledWith(hopInput, baseContextValues);
     });
 
-    describe('deleteItem(name, description): Item', () => {
-      it('deletes an item when given good info', async () => {
-        const remove = jest.fn().mockResolvedValue({ ok: true });
-        const itemController = createItemControllerMock({ remove });
+    it('propagates controller errors', async () => {
+      const attemptHop = jest.fn().mockRejectedValue(new Error('invalid hop'));
+      const hopController = createHopControllerMock({ attemptHop });
+      const context = { ...baseContextValues, hopController };
 
-        await expect(
-          Mutation.deleteItem(
-            undefined,
-            { id: 'niner' },
-            { itemController, event: {}, ownerId: 'yourself' },
-          ),
-        ).resolves.toEqual({ ok: true });
-
-        expect(remove).toHaveBeenCalledWith('niner', 'yourself');
-      });
-
-      it("explodes if the auth owner id doesn't match the target item", async () => {
-        const remove = jest
-          .fn()
-          .mockRejectedValue(new Error('Conditional check failed'));
-        const itemController = createItemControllerMock({ remove });
-
-        await expect(
-          Mutation.deleteItem(
-            undefined,
-            { id: 'niner' },
-            { itemController, event: {}, ownerId: 'yourself' },
-          ),
-        ).rejects.toThrow('Conditional check failed');
-      });
+      await expect(
+        Mutation.attemptHop(undefined, hopInput, context),
+      ).rejects.toThrow('invalid hop');
     });
+  });
+
+  describe('deleteHops', () => {
+    it('removes multiple hops via the controller', async () => {
+      const removeMany = jest.fn().mockResolvedValue({ ok: true });
+      const hopController = createHopControllerMock({ removeMany });
+      const context = { ...baseContextValues, hopController };
+
+      const result = await Mutation.deleteHops(
+        undefined,
+        { ids: ['a', 'b'] },
+        context,
+      );
+
+      expect(result).toEqual({ ok: true });
+      expect(removeMany).toHaveBeenCalledWith(['a', 'b']);
+    });
+
+    it('propagates controller failures', async () => {
+      const removeMany = jest
+        .fn()
+        .mockRejectedValue(new Error('delete failed'));
+      const hopController = createHopControllerMock({ removeMany });
+      const context = { ...baseContextValues, hopController };
+
+      await expect(
+        Mutation.deleteHops(undefined, { ids: ['a'] }, context),
+      ).rejects.toThrow('delete failed');
+    });
+  });
+});
+
+describe('Hop federation resolver', () => {
+  it('loads referenced hops by id', async () => {
+    const getById = jest.fn().mockResolvedValue(defaultHop);
+    const hopController = createHopControllerMock({ getById });
+    const context = { ...baseContextValues, hopController };
+
+    const hop = await Hop.__resolveReference({ id: defaultHop.id }, context);
+
+    expect(hop).toBe(defaultHop);
+    expect(getById).toHaveBeenCalledWith(defaultHop.id);
   });
 });

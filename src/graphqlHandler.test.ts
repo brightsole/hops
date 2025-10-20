@@ -7,55 +7,91 @@ import getGraphqlServer from '../test/getGraphqlServer';
 // correct low level unit testing should be done on the resolver/util level
 
 describe('Resolver full path', () => {
-  it('creates an item without error', async () => {
+  it('attempts a hop without error', async () => {
     const server = getGraphqlServer();
 
-    const createItemMutation = gql`
-      mutation CreateItem($name: String, $description: String) {
-        createItem(name: $name, description: $description) {
+    const attemptHopMutation = gql`
+      mutation AttemptHop($input: AttemptHopInput!, $userInfo: UserInfo!) {
+        attemptHop(input: $input, userInfo: $userInfo) {
           id
-          name
-          description
+          from
+          to
+          hopKey
+          ownerId
+          gameId
         }
       }
     `;
 
-    const create = jest.fn();
-    const itemController = {
-      create,
-      getById: jest.fn(),
-      listByOwner: jest.fn(),
-      update: jest.fn(),
-      remove: jest.fn(),
+    const userInfo = {
+      ownerId: 'owner-1',
+      gameId: 'game-1',
+      attemptId: 'attempt-1',
     };
 
-    const ownerId = 'that guy who makes things';
+    const input = {
+      from: {
+        name: 'alpha',
+        links: [{ name: 'alpha-link', associations: [] }],
+      },
+      to: {
+        name: 'beta',
+        links: [{ name: 'beta-link', associations: [] }],
+      },
+      final: {
+        name: 'gamma',
+        links: [{ name: 'gamma-link', associations: [] }],
+      },
+    };
 
-    const name = 'the diner of despair';
-    const description =
-      'a horrible place where the clientelle go to get bitten, not a bite';
+    const hopController = {
+      attemptHop: jest
+        .fn()
+        .mockImplementation(
+          async (
+            args: Record<string, unknown>,
+            meta: Record<string, unknown>,
+          ) => {
+            const hopInput =
+              typeof args.input === 'object' && args.input !== null
+                ? (args.input as typeof input)
+                : (args as unknown as typeof input);
+            expect(hopInput).toEqual(input);
+            expect(meta).toMatchObject(userInfo);
 
-    create.mockResolvedValueOnce({
-      id: nanoid(),
-      name,
-      description,
-      ownerId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+            return {
+              id: nanoid(),
+              associations: 'alpha-beta',
+              attemptId: userInfo.attemptId,
+              ownerId: userInfo.ownerId,
+              gameId: userInfo.gameId,
+              hopKey: `${input.from.name}::${input.to.name}`,
+              from: input.from.name,
+              to: input.to.name,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+          },
+        ),
+      getById: jest.fn(),
+      getMany: jest.fn(),
+      query: jest.fn(),
+      removeMany: jest.fn(),
+    };
 
     const { body } = await server.executeOperation(
       {
-        query: createItemMutation,
+        query: attemptHopMutation,
         variables: {
-          name,
-          description,
+          input,
+          userInfo,
         },
       },
       {
         contextValue: {
-          ownerId,
-          itemController,
+          hopController,
+          ...userInfo,
+          event: { requestContext: { requestId: 'req-1' } },
         },
       },
     );
@@ -68,8 +104,15 @@ describe('Resolver full path', () => {
 
     expect(singleResult.errors).toBeUndefined();
     expect(singleResult.data).toEqual({
-      createItem: { id: expect.any(String), name, description },
+      attemptHop: {
+        id: expect.any(String),
+        from: input.from.name,
+        to: input.to.name,
+        hopKey: `${input.from.name}::${input.to.name}`,
+        ownerId: userInfo.ownerId,
+        gameId: userInfo.gameId,
+      },
     });
-    expect(create).toHaveBeenCalledWith({ name, description }, ownerId);
+    expect(hopController.attemptHop).toHaveBeenCalledTimes(1);
   });
 });
