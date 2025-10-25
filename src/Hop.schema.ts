@@ -22,6 +22,7 @@ export default new Schema(
       required: true,
       index: { name: 'gameId', type: 'global' },
     },
+    isFinal: { type: Boolean },
     from: { type: String },
     to: { type: String },
     linkKey: {
@@ -29,10 +30,10 @@ export default new Schema(
       required: true,
       index: { name: 'linkKey', type: 'global' },
     },
-    associations: {
+    associationsKey: {
       type: String,
       required: true,
-      index: { name: 'associations', type: 'global' },
+      index: { name: 'associationsKey', type: 'global' },
     },
   },
   { timestamps: true },

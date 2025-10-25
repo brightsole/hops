@@ -13,6 +13,10 @@ export default $config({
     const linksTable = new sst.aws.Dynamo('Links', {
       fields: {
         id: 'string',
+        associationsKey: 'string',
+      },
+      globalIndexes: {
+        associationsKey: { hashKey: 'associationsKey' },
       },
       primaryIndex: { hashKey: 'id' },
       deletionProtection: $app.stage === 'production',
@@ -24,14 +28,14 @@ export default $config({
         linkKey: 'string',
         ownerId: 'string',
         attemptId: 'string',
-        associations: 'string',
+        associationsKey: 'string',
       },
       globalIndexes: {
         gameId: { hashKey: 'gameId' },
         linkKey: { hashKey: 'linkKey' },
         ownerId: { hashKey: 'ownerId' },
         attemptId: { hashKey: 'attemptId' },
-        associations: { hashKey: 'associations' },
+        associationsKey: { hashKey: 'associationsKey' },
       },
       primaryIndex: { hashKey: 'id' },
       deletionProtection: $app.stage === 'production',

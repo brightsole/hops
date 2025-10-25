@@ -47,7 +47,7 @@ export const createHopController = (
         if (['ownerId', 'gameId', 'attemptId'].includes(key))
           return { ...acc, [key]: { eq: value } };
 
-        if (['linkKey', 'associations'].includes(key))
+        if (['linkKey', 'associationsKey'].includes(key))
           return { ...acc, [key]: { contains: value } };
 
         return acc;
@@ -80,7 +80,7 @@ export const createHopController = (
 
     const hop = await HopModel.create({
       linkKey: firstLink.id,
-      associations: firstLink.associations,
+      associationsKey: firstLink.associationsKey,
       from: from,
       to: to,
       ownerId: userInfo.userId,
@@ -93,9 +93,10 @@ export const createHopController = (
       finalHop = await HopModel.create({
         id: nanoid(),
         linkKey: finalAssociation.id,
-        associations: finalAssociation.associations,
+        associationsKey: finalAssociation.associationsKey,
         from: to,
         to: final,
+        isFinal: true,
         ownerId: userInfo.userId,
         gameId: userInfo.gameId,
         attemptId: userInfo.attemptId,

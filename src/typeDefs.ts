@@ -19,7 +19,8 @@ export default gql`
     name: String
     from: String
     to: String
-    associations: String
+    isFinal: Boolean
+    associationsKey: String
     attemptId: String
     ownerId: String
     gameId: String
@@ -33,7 +34,7 @@ export default gql`
     gameId: String
     attemptId: String
     linkKey: ID
-    associations: String
+    associationsKey: String
   }
 
   type Query {

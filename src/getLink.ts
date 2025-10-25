@@ -2,6 +2,7 @@ import { LRUCache } from 'lru-cache';
 import type { Word, Link, DBLinkModel } from './types';
 import env from './env';
 import { getAssociations } from './getAssociations';
+import { normalizeWord } from './sanitize';
 
 const wordCache = new LRUCache<string, Word>({
   max: 100,
@@ -27,7 +28,9 @@ export const getLink = async (
   from: string,
   to: string,
 ): Promise<Link> => {
-  const orderedWordsKey = [from, to].sort().join('::');
+  const normalisedFrom = normalizeWord(from);
+  const normalisedTo = normalizeWord(to);
+  const orderedWordsKey = [normalisedFrom, normalisedTo].sort().join('::');
   const cached = linkCache.get(orderedWordsKey);
   if (cached) return cached;
 
@@ -42,14 +45,17 @@ export const getLink = async (
   }
 
   const [fromWord, toWord] = await Promise.all([
-    fetchWord(from),
-    fetchWord(to),
+    fetchWord(normalisedFrom),
+    fetchWord(normalisedTo),
   ]);
 
-  const associations = getAssociations(fromWord, toWord);
+  const associationsKey = getAssociations(fromWord, toWord);
+  // Link version mirrors the words dataset version. If they differ, choose the lower.
+  const version = Math.min(fromWord.version ?? 1, toWord.version ?? 1);
   const newLink: Link = {
     id: orderedWordsKey,
-    associations,
+    associationsKey,
+    version,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

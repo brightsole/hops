@@ -72,7 +72,7 @@ const createLinkModel = () =>
 const hop = (overrides: Record<string, unknown> = {}) => ({
   id: 'h-1',
   linkKey: 'a::b',
-  associations: 'assoc',
+  associationsKey: 'assoc',
   from: 'a',
   to: 'b',
   ownerId: 'owner',
@@ -152,7 +152,8 @@ describe('Hop controller', () => {
     getLinkMock
       .mockResolvedValueOnce({
         id: 'alpha::beta',
-        associations: 'a|b',
+        associationsKey: 'a|b',
+        version: 1,
         createdAt: 0,
         updatedAt: 0,
       })
@@ -191,13 +192,15 @@ describe('Hop controller', () => {
     getLinkMock
       .mockResolvedValueOnce({
         id: 'alpha::beta',
-        associations: 'a|b',
+        associationsKey: 'a|b',
+        version: 1,
         createdAt: 0,
         updatedAt: 0,
       })
       .mockResolvedValueOnce({
         id: 'beta::gamma',
-        associations: 'b|g',
+        associationsKey: 'b|g',
+        version: 1,
         createdAt: 0,
         updatedAt: 0,
       });

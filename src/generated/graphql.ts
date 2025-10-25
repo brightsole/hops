@@ -27,12 +27,13 @@ export type Affirmative = {
 
 export type Hop = {
   __typename?: 'Hop';
-  associations?: Maybe<Scalars['String']['output']>;
+  associationsKey?: Maybe<Scalars['String']['output']>;
   attemptId?: Maybe<Scalars['String']['output']>;
   createdAt?: Maybe<Scalars['DateTime']['output']>;
   from?: Maybe<Scalars['String']['output']>;
   gameId?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  isFinal?: Maybe<Scalars['Boolean']['output']>;
   linkKey: Scalars['ID']['output'];
   name?: Maybe<Scalars['String']['output']>;
   ownerId?: Maybe<Scalars['String']['output']>;
@@ -41,7 +42,7 @@ export type Hop = {
 };
 
 export type HopQueryInput = {
-  associations?: InputMaybe<Scalars['String']['input']>;
+  associationsKey?: InputMaybe<Scalars['String']['input']>;
   attemptId?: InputMaybe<Scalars['String']['input']>;
   gameId?: InputMaybe<Scalars['String']['input']>;
   linkKey?: InputMaybe<Scalars['ID']['input']>;
@@ -212,12 +213,13 @@ export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversT
 
 export type HopResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Hop'] = ResolversParentTypes['Hop'], FederationReferenceType extends FederationReferenceTypes['Hop'] = FederationReferenceTypes['Hop']> = {
   __resolveReference?: ReferenceResolver<Maybe<ResolversTypes['Hop']> | FederationReferenceType, FederationReferenceType, ContextType>;
-  associations?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  associationsKey?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   attemptId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   from?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   gameId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isFinal?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   linkKey?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ownerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

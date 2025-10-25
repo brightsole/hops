@@ -36,9 +36,10 @@ export type Word = {
 export type DBHop = DynamooseItem & {
   id: string;
   linkKey: string;
-  associations: string;
+  associationsKey: string;
   from: string;
   to: string;
+  isFinal?: boolean;
   attemptId: string;
   ownerId: string;
   gameId: string;
@@ -49,7 +50,8 @@ export type DBHopModel = Model<DBHop>;
 
 export type Link = {
   id: string;
-  associations: string;
+  associationsKey: string;
+  version: number;
   createdAt: number;
   updatedAt: number;
 };

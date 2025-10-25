@@ -121,7 +121,7 @@ describe('getLink', () => {
   it('returns a preexisting link from the DB and caches it (order-insensitive key)', async () => {
     const existing = {
       id: 'alpha2::beta2',
-      associations: 'associated|rhyme',
+      associationsKey: 'associated|rhyme',
       createdAt: 1,
       updatedAt: 2,
     } as DBLink;
@@ -181,7 +181,8 @@ describe('getLink', () => {
     const created = createMock.mock.calls[0][0];
     expect(created).toEqual({
       id: 'alpha3::beta3',
-      associations: 'means|rhyme',
+      associationsKey: 'means|rhyme',
+      version: 1,
       createdAt: NOW.getTime(),
       updatedAt: NOW.getTime(),
     });
@@ -238,7 +239,8 @@ describe('getLink', () => {
     const link1 = await getLink(LinkModel, 'alpha5', 'beta5');
     expect(link1).toEqual({
       id: 'alpha5::beta5',
-      associations: 'associated',
+      associationsKey: 'associated',
+      version: 1,
       createdAt: NOW.getTime(),
       updatedAt: NOW.getTime(),
     });
@@ -246,7 +248,8 @@ describe('getLink', () => {
     const link2 = await getLink(LinkModel, 'gamma5', 'alpha5');
     expect(link2).toEqual({
       id: 'alpha5::gamma5',
-      associations: 'associated',
+      associationsKey: 'associated',
+      version: 1,
       createdAt: NOW.getTime(),
       updatedAt: NOW.getTime(),
     });
