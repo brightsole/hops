@@ -1,42 +1,36 @@
 import { GraphQLDateTime, GraphQLJSONObject } from 'graphql-scalars';
-import type { Context, IdObject, HopQuery, HopInput } from './types';
+import type { Resolvers } from './generated/graphql';
+import type { Context } from './types';
 
-export default {
+const resolvers: Resolvers = {
   Query: {
-    hop: async (
-      _: undefined,
-      { id }: { id: string },
-      { hopController }: Context,
-    ) => hopController.getById(id),
+    hop: async (_parent, { id }, { hopController }) =>
+      hopController.getById(id),
     // for extra security, we could ignore the props passed in, and instead only grab items that belong to
     // the ownerId passed in the headers. This could also be overly limiting if items aren't private
-    hops: async (
-      _: undefined,
-      { query }: { query: HopQuery },
-      { hopController }: Context,
-    ) => hopController.query(query),
+    hops: async (_parent, { query }, { hopController }) =>
+      hopController.query(query),
   },
 
   Mutation: {
     attemptHop: async (
-      _: undefined,
-      input: HopInput,
-      { hopController, ...rest }: Context,
-    ) => hopController.attemptHop(input, rest),
+      _parent,
+      input,
+      { hopController, userId, attemptId, gameId }: Context,
+    ) => hopController.attemptHop(input, { userId, attemptId, gameId }),
 
-    deleteHops: async (
-      _: undefined,
-      { ids }: { ids: string[] },
-      { hopController }: Context,
-    ) => hopController.removeMany(ids),
+    deleteHops: async (_parent, { ids }, { hopController }) =>
+      hopController.removeMany(ids),
   },
 
   Hop: {
     // for finding out the info of the other items in the system
-    __resolveReference: async ({ id }: IdObject, { hopController }: Context) =>
+    __resolveReference: async ({ id }, { hopController }) =>
       hopController.getById(id),
   },
 
   DateTime: GraphQLDateTime,
   JSONObject: GraphQLJSONObject,
 };
+
+export default resolvers;

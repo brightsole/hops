@@ -1,185 +1,173 @@
+import type { GraphQLResolveInfo } from 'graphql';
 import resolvers from './resolvers';
-import type { Hop as HopType, Word } from './types';
+import type { Context } from './types';
+import type { Resolver } from './generated/graphql';
+import type { createHopController } from './controller';
 
-const { Query, Mutation, Hop } = resolvers;
+// Typed controller mock
+type HopControllerMock = jest.Mocked<ReturnType<typeof createHopController>>;
 
-const defaultHop: HopType = {
-  id: 'niner',
-  ownerId: 'owner',
-  associations: 'rhymes',
-  attemptId: 'attempt-1',
-  gameId: 'game-1',
-  hopKey: 'alpha::beta',
-  from: 'alpha',
-  to: 'beta',
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
-};
+const mockHopControllerFactory = jest.fn(
+  (overrides: Partial<HopControllerMock> = {}): HopControllerMock =>
+    ({
+      getById: jest.fn(),
+      getMany: jest.fn(),
+      query: jest.fn(),
+      attemptHop: jest.fn(),
+      removeMany: jest.fn(),
+      ...overrides,
+    }) as unknown as HopControllerMock,
+);
 
-const baseContextValues = {
-  attemptId: 'attempt-1',
-  ownerId: 'owner',
-  gameId: 'game-1',
-  event: { requestContext: { requestId: 'req-1' } },
-};
-
-type HopControllerMock = {
-  attemptHop: jest.Mock;
-  getById: jest.Mock;
-  getMany: jest.Mock;
-  query: jest.Mock;
-  removeMany: jest.Mock;
-};
-
-const createHopControllerMock = (
+const buildHopController = (
   overrides: Partial<HopControllerMock> = {},
-): HopControllerMock => ({
-  attemptHop: jest.fn().mockRejectedValue(new Error('unexpected attemptHop')),
-  getById: jest.fn().mockRejectedValue(new Error('unexpected getById')),
-  getMany: jest.fn().mockRejectedValue(new Error('unexpected getMany')),
-  query: jest.fn().mockRejectedValue(new Error('unexpected query')),
-  removeMany: jest.fn().mockRejectedValue(new Error('unexpected removeMany')),
-  ...overrides,
-});
+): HopControllerMock => mockHopControllerFactory(overrides);
 
-const makeWord = (name: string): Word => ({
-  name,
-  cacheExpiryDate: Date.now(),
-  updatedAt: Date.now(),
-  version: 1,
-  links: [{ name: `${name}-link`, associations: [] }],
-});
+type ContextOverrides = Partial<Omit<Context, 'hopController'>> & {
+  hopController?: HopControllerMock;
+};
 
-describe('Query', () => {
-  describe('hop', () => {
-    it('fetches a hop by id', async () => {
-      const hopController = createHopControllerMock({
-        getById: jest.fn().mockResolvedValue({ id: 'niner' }),
+const buildContext = (overrides: ContextOverrides = {}): Context => {
+  const { hopController = buildHopController(), ...rest } = overrides;
+
+  return {
+    event: {},
+    hopController,
+    userId: 'user-1',
+    gameId: 'game-1',
+    attemptId: 'attempt-1',
+    ...rest,
+  } as Context;
+};
+
+const ensureResolver = <Result, Parent, Args>(
+  resolver: Resolver<Result, Parent, Context, Args> | undefined,
+  key: string,
+): Resolver<Result, Parent, Context, Args> => {
+  if (!resolver) throw new Error(`${key} resolver is not implemented`);
+  return resolver;
+};
+
+const callResolver = async <Result, Parent, Args>(
+  resolver: Resolver<Result, Parent, Context, Args> | undefined,
+  parent: Parent,
+  args: Args,
+  context: Context,
+  key: string,
+) => {
+  const info = {} as GraphQLResolveInfo;
+  const resolved = ensureResolver(resolver, key);
+  if (typeof resolved === 'function')
+    return resolved(parent, args, context, info);
+  return resolved.resolve(parent, args, context, info);
+};
+
+describe('Resolvers', () => {
+  const Query = resolvers.Query!;
+  const Mutation = resolvers.Mutation!;
+  const Hop = resolvers.Hop!;
+
+  describe('Query.hop', () => {
+    it('delegates to hopController.getById', async () => {
+      const hopController = buildHopController({
+        getById: jest.fn().mockResolvedValue({ id: 'h-1' }),
       });
-      const context = { ...baseContextValues, hopController };
 
-      const hop = await Query.hop(undefined, { id: 'niner' }, context);
-
-      expect(hop).toEqual({ id: 'niner' });
-      expect(hopController.getById).toHaveBeenCalledWith('niner');
-    });
-
-    it('returns undefined when no hop exists', async () => {
-      const hopController = createHopControllerMock({
-        getById: jest.fn().mockResolvedValue(undefined),
-      });
-      const context = { ...baseContextValues, hopController };
-
-      const hop = await Query.hop(undefined, { id: 'ghost' }, context);
-
-      expect(hop).toBeUndefined();
-    });
-  });
-
-  describe('hops', () => {
-    it('delegates to the controller with the provided filter', async () => {
-      const results = [
-        { id: 'niner', ownerId: 'owner' },
-        { id: 'five', ownerId: 'owner' },
-      ];
-      const filter = { ownerId: 'owner', gameId: 'game-1' };
-      const hopController = createHopControllerMock({
-        query: jest.fn().mockResolvedValue(results),
-      });
-      const context = { ...baseContextValues, hopController };
-
-      const hops = await Query.hops(undefined, { query: filter }, context);
-
-      expect(hops).toEqual(results);
-      expect(hopController.query).toHaveBeenCalledWith(filter);
-    });
-
-    it('bubbles empty results through untouched', async () => {
-      const hopController = createHopControllerMock({
-        query: jest.fn().mockResolvedValue([]),
-      });
-      const context = { ...baseContextValues, hopController };
-
-      const hops = await Query.hops(
-        undefined,
-        { query: { ownerId: 'ghost' } },
-        context,
+      const result = await callResolver(
+        Query.hop,
+        {},
+        { id: 'h-1' },
+        buildContext({ hopController }),
+        'Query.hop',
       );
 
-      expect(hops).toEqual([]);
-    });
-  });
-});
-
-describe('Mutation', () => {
-  describe('attemptHop', () => {
-    const hopInput = {
-      from: makeWord('alpha'),
-      to: makeWord('beta'),
-      final: makeWord('gamma'),
-    };
-
-    it('invokes the controller with hop input and context metadata', async () => {
-      const attemptHop = jest.fn().mockResolvedValue(defaultHop);
-      const hopController = createHopControllerMock({ attemptHop });
-      const context = { ...baseContextValues, hopController };
-
-      const hop = await Mutation.attemptHop(undefined, hopInput, context);
-
-      expect(hop).toBe(defaultHop);
-      expect(attemptHop).toHaveBeenCalledWith(hopInput, baseContextValues);
-    });
-
-    it('propagates controller errors', async () => {
-      const attemptHop = jest.fn().mockRejectedValue(new Error('invalid hop'));
-      const hopController = createHopControllerMock({ attemptHop });
-      const context = { ...baseContextValues, hopController };
-
-      await expect(
-        Mutation.attemptHop(undefined, hopInput, context),
-      ).rejects.toThrow('invalid hop');
+      expect(hopController.getById).toHaveBeenCalledWith('h-1');
+      expect(result).toEqual({ id: 'h-1' });
     });
   });
 
-  describe('deleteHops', () => {
-    it('removes multiple hops via the controller', async () => {
-      const removeMany = jest.fn().mockResolvedValue({ ok: true });
-      const hopController = createHopControllerMock({ removeMany });
-      const context = { ...baseContextValues, hopController };
+  describe('Query.hops', () => {
+    it('delegates to hopController.query', async () => {
+      const hopController = buildHopController({
+        query: jest.fn().mockResolvedValue([{ id: 'h-1' }]),
+      });
 
-      const result = await Mutation.deleteHops(
-        undefined,
-        { ids: ['a', 'b'] },
-        context,
+      const result = await callResolver(
+        Query.hops,
+        {},
+        { query: { ownerId: 'owner-1' } },
+        buildContext({ hopController }),
+        'Query.hops',
       );
 
+      expect(hopController.query).toHaveBeenCalledWith({ ownerId: 'owner-1' });
+      expect(result).toEqual([{ id: 'h-1' }]);
+    });
+  });
+
+  describe('Mutation.attemptHop', () => {
+    it('delegates to hopController.attemptHop with user context', async () => {
+      const hopController = buildHopController({
+        attemptHop: jest.fn().mockResolvedValue([{ id: 'h-1' }]),
+      });
+
+      const ctx = buildContext({
+        hopController,
+        userId: 'u-1',
+        gameId: 'g-1',
+        attemptId: 'a-1',
+      });
+
+      const result = await callResolver(
+        Mutation.attemptHop,
+        {},
+        { from: 'alpha', to: 'beta', final: 'gamma' },
+        ctx,
+        'Mutation.attemptHop',
+      );
+
+      expect(hopController.attemptHop).toHaveBeenCalledWith(
+        { from: 'alpha', to: 'beta', final: 'gamma' },
+        { userId: 'u-1', gameId: 'g-1', attemptId: 'a-1' },
+      );
+      expect(result).toEqual([{ id: 'h-1' }]);
+    });
+  });
+
+  describe('Mutation.deleteHops', () => {
+    it('delegates to hopController.removeMany', async () => {
+      const hopController = buildHopController({
+        removeMany: jest.fn().mockResolvedValue({ ok: true }),
+      });
+
+      const result = await callResolver(
+        Mutation.deleteHops,
+        {},
+        { ids: ['x', 'y'] },
+        buildContext({ hopController }),
+        'Mutation.deleteHops',
+      );
+
+      expect(hopController.removeMany).toHaveBeenCalledWith(['x', 'y']);
       expect(result).toEqual({ ok: true });
-      expect(removeMany).toHaveBeenCalledWith(['a', 'b']);
-    });
-
-    it('propagates controller failures', async () => {
-      const removeMany = jest
-        .fn()
-        .mockRejectedValue(new Error('delete failed'));
-      const hopController = createHopControllerMock({ removeMany });
-      const context = { ...baseContextValues, hopController };
-
-      await expect(
-        Mutation.deleteHops(undefined, { ids: ['a'] }, context),
-      ).rejects.toThrow('delete failed');
     });
   });
-});
 
-describe('Hop federation resolver', () => {
-  it('loads referenced hops by id', async () => {
-    const getById = jest.fn().mockResolvedValue(defaultHop);
-    const hopController = createHopControllerMock({ getById });
-    const context = { ...baseContextValues, hopController };
+  describe('Hop.__resolveReference', () => {
+    it('delegates to hopController.getById', async () => {
+      const hopController = buildHopController({
+        getById: jest.fn().mockResolvedValue({ id: 'h-9' }),
+      });
 
-    const hop = await Hop.__resolveReference({ id: defaultHop.id }, context);
+      // __resolveReference has a slightly different signature; call directly
+      const result = await Hop.__resolveReference?.(
+        { id: 'h-9' } as never,
+        buildContext({ hopController }),
+        {} as GraphQLResolveInfo,
+      );
 
-    expect(hop).toBe(defaultHop);
-    expect(getById).toHaveBeenCalledWith(defaultHop.id);
+      expect(hopController.getById).toHaveBeenCalledWith('h-9');
+      expect(result).toEqual({ id: 'h-9' });
+    });
   });
 });

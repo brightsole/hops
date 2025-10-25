@@ -6,16 +6,19 @@ export const setContext: ContextFunction<
   [LambdaContextFunctionArgument],
   BaseContext
 > = async ({ event, context }): Promise<Context> => {
-  const { id, gameId, attemptId } = event.headers;
+  // todo fix this better with x-blahs and getters
+  const userId = event.headers['x-user-id'];
+  const gameId = event.headers['x-game-id'];
+  const attemptId = event.headers['x-attempt-id'];
   const hopController = startController();
 
-  if (!id || !gameId || !attemptId) {
+  if (!userId || !gameId || !attemptId) {
     throw new Error('Missing required headers');
   }
 
   return {
     ...context,
-    ownerId: id,
+    userId,
     gameId,
     attemptId,
     event,

@@ -1,223 +1,240 @@
-import type { Word, ModelType, HopQuery } from './types';
 import { createHopController } from './controller';
-import { getAssociations } from './getAssociations';
+import { getLink } from './getLink';
+import type { DBHopModel, DBLinkModel } from './types';
 
-const transactionExecMock = jest.fn();
-
-jest.mock('dynamoose', () => {
-  const transaction = jest.fn();
-  const model = jest.fn();
-  const Schema = jest.fn().mockImplementation(() => ({}));
-
-  return {
-    transaction,
-    model,
-    Schema,
-  };
+// Hoisted dependency mocks
+jest.mock('nanoid', () => {
+  let i = 0;
+  return { nanoid: () => `hop-${++i}` };
 });
 
-jest.mock('./getAssociations');
+// We'll override per-test via imported mock function
+jest.mock('./getLink', () => ({
+  __esModule: true,
+  getLink: jest.fn(),
+}));
 
-const {
-  transaction: mockTransaction,
-  model: _mockModel,
-  Schema: _mockSchema,
-} = jest.requireMock('dynamoose') as {
-  transaction: jest.Mock;
-  model: jest.Mock;
-  Schema: jest.Mock;
-};
+// Mock dynamoose transaction only (we inject models ourselves)
+jest.mock('dynamoose', () => ({
+  __esModule: true,
+  // minimal Schema stub to satisfy schema constructors
+  Schema: class Schema {
+    constructor(..._args: unknown[]) {}
+  },
+  transaction: (
+    ops: Array<{ type: string; item: Record<string, unknown> }>,
+  ) => ({
+    exec: async () =>
+      ops
+        .filter((op) => op && op.type === 'create')
+        .map((op) => ({
+          ...op.item,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        })),
+  }),
+}));
 
-const getAssociationsMock = getAssociations as jest.MockedFunction<
-  typeof getAssociations
->;
-
-const createWord = (name: string): Word => ({
-  name,
-  links: [],
-  cacheExpiryDate: 0,
-  updatedAt: 0,
-  version: 1,
-});
-
+// Single-use terse model factories with jest.Mock-typed methods
 type HopModelMock = {
-  get: jest.Mock;
-  batchGet: jest.Mock;
-  batchDelete: jest.Mock;
-  query: jest.Mock;
-  transaction: { create: jest.Mock };
+  get: jest.Mock<Promise<unknown>, [string]>;
+  batchGet: jest.Mock<Promise<unknown>, [string[]]>;
+  query: jest.Mock<{ exec: jest.Mock<Promise<unknown>, []> }, [unknown]>;
+  batchDelete: jest.Mock<Promise<unknown>, [string[]]>;
+  transaction: {
+    create: jest.Mock<{ type: string; item: unknown }, [unknown]>;
+  };
 };
 
-const createHopModelMock = (
-  overrides: Partial<HopModelMock> = {},
-): HopModelMock => ({
-  get: jest.fn(),
-  batchGet: jest.fn(),
-  batchDelete: jest.fn(),
-  query: jest.fn().mockReturnValue({ exec: jest.fn() }),
-  transaction: { create: jest.fn() },
+type LinkModelMock = {
+  get: jest.Mock<Promise<unknown>, [string]>;
+  create: jest.Mock<Promise<unknown>, [unknown]>;
+};
+
+const createHopModel = () =>
+  ({
+    get: jest.fn(),
+    batchGet: jest.fn(),
+    query: jest.fn().mockReturnValue({ exec: jest.fn() }),
+    batchDelete: jest.fn(),
+    transaction: { create: jest.fn((item) => ({ type: 'create', item })) },
+  }) as DBHopModel & HopModelMock;
+
+const createLinkModel = () =>
+  ({
+    get: jest.fn(),
+    create: jest.fn(),
+  }) as DBLinkModel & LinkModelMock;
+
+// Helpers
+const hop = (overrides: Record<string, unknown> = {}) => ({
+  id: 'h-1',
+  linkKey: 'a::b',
+  associations: 'assoc',
+  from: 'a',
+  to: 'b',
+  ownerId: 'owner',
+  gameId: 'game',
+  attemptId: 'attempt',
+  createdAt: 1,
+  updatedAt: 1,
   ...overrides,
 });
 
-const buildController = (model: HopModelMock) =>
-  createHopController(model as unknown as ModelType);
+const getLinkMock = getLink as jest.MockedFunction<typeof getLink>;
 
-describe('createHopController', () => {
+describe('Hop controller', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    transactionExecMock.mockReset();
-    mockTransaction.mockReset();
-    mockTransaction.mockImplementation(() => ({ exec: transactionExecMock }));
-    getAssociationsMock.mockReset();
+    getLinkMock.mockReset();
   });
 
-  describe('attemptHop', () => {
-    const meta = {
-      ownerId: 'owner-1',
-      gameId: 'game-1',
-      attemptId: 'attempt-1',
-    };
+  it('getById caches results on subsequent calls', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+    const item = hop({ id: 'id-1' });
 
-    it('runs both hop creations in a single transaction when the final hop links back', async () => {
-      const hopModel = createHopModelMock({
-        transaction: {
-          create: jest.fn((payload) => ({ action: 'create', payload })),
-        },
+    HopModel.get.mockResolvedValue(item);
+
+    const controller = createHopController(HopModel, LinkModel);
+
+    const a = await controller.getById('id-1');
+    const b = await controller.getById('id-1');
+
+    expect(a).toEqual(item);
+    expect(b).toEqual(item);
+    expect(HopModel.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('getMany delegates to batchGet', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+    HopModel.batchGet.mockResolvedValue([hop({ id: 'm-1' })]);
+
+    const controller = createHopController(HopModel, LinkModel);
+
+    const res = await controller.getMany(['m-1']);
+    expect(HopModel.batchGet).toHaveBeenCalledWith(['m-1']);
+    expect(res).toEqual([hop({ id: 'm-1' })]);
+  });
+
+  it('query caches results and populates hop cache', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+    const items = [hop({ id: 'q-1' }), hop({ id: 'q-2' })];
+
+    const execMock = jest.fn().mockResolvedValue(items);
+    HopModel.query.mockReturnValue({ exec: execMock });
+
+    const controller = createHopController(HopModel, LinkModel);
+
+    // first query hits model
+    const first = await controller.query({ ownerId: 'o-1' });
+    expect(HopModel.query).toHaveBeenCalledTimes(1);
+    expect(first).toEqual(items);
+
+    // second identical query hits cache
+    const second = await controller.query({ ownerId: 'o-1' });
+    expect(HopModel.query).toHaveBeenCalledTimes(1);
+    expect(second).toEqual(items);
+
+    // getById should return from hop cache without calling model.get
+    const got = await controller.getById('q-1');
+    expect(HopModel.get).not.toHaveBeenCalled();
+    expect(got).toEqual(items[0]);
+  });
+
+  it('attemptHop creates one hop when final is absent', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+
+    getLinkMock
+      .mockResolvedValueOnce({
+        id: 'alpha::beta',
+        associations: 'a|b',
+        createdAt: 0,
+        updatedAt: 0,
+      })
+      .mockRejectedValueOnce(new Error('no final link'));
+
+    const controller = createHopController(HopModel, LinkModel);
+
+    const result = await controller.attemptHop(
+      { from: 'alpha', to: 'beta', final: 'gamma' },
+      { userId: 'u', gameId: 'g', attemptId: 'x' },
+    );
+
+    expect(getLinkMock).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      linkKey: 'alpha::beta',
+      from: 'alpha',
+      to: 'beta',
+      ownerId: 'u',
+      gameId: 'g',
+      attemptId: 'x',
+    });
+
+    // cached by id
+    const again = await createHopController(HopModel, LinkModel).getById(
+      result[0].id,
+    );
+    expect(HopModel.get).not.toHaveBeenCalled();
+    expect(again).toMatchObject({ id: result[0].id });
+  });
+
+  it('attemptHop creates two hops when final exists', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+
+    getLinkMock
+      .mockResolvedValueOnce({
+        id: 'alpha::beta',
+        associations: 'a|b',
+        createdAt: 0,
+        updatedAt: 0,
+      })
+      .mockResolvedValueOnce({
+        id: 'beta::gamma',
+        associations: 'b|g',
+        createdAt: 0,
+        updatedAt: 0,
       });
-      const controller = buildController(hopModel);
-      const from = createWord('alpha');
-      const to = createWord('beta');
-      const final = createWord('gamma');
 
-      getAssociationsMock.mockReturnValueOnce('alpha-beta');
-      getAssociationsMock.mockReturnValueOnce('beta-gamma');
-      transactionExecMock.mockResolvedValue(['hop-primary', 'hop-final']);
+    const controller = createHopController(HopModel, LinkModel);
 
-      const result = await controller.attemptHop({ from, to, final }, meta);
+    const result = await controller.attemptHop(
+      { from: 'alpha', to: 'beta', final: 'gamma' },
+      { userId: 'u', gameId: 'g', attemptId: 'x' },
+    );
 
-      expect(result).toEqual(['hop-primary', 'hop-final']);
-      expect(getAssociationsMock).toHaveBeenNthCalledWith(1, from, to);
-      expect(getAssociationsMock).toHaveBeenNthCalledWith(2, to, final);
-      expect(hopModel.transaction.create).toHaveBeenCalledTimes(2);
-      expect(hopModel.transaction.create).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          hopKey: 'alpha::beta',
-          associations: 'alpha-beta',
-          from: 'alpha',
-          to: 'beta',
-          ownerId: meta.ownerId,
-        }),
-      );
-      expect(hopModel.transaction.create).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          hopKey: 'beta::gamma',
-          associations: 'beta-gamma',
-          from: 'beta',
-          to: 'gamma',
-          ownerId: meta.ownerId,
-        }),
-      );
-      expect(mockTransaction).toHaveBeenCalledWith([
-        {
-          action: 'create',
-          payload: expect.objectContaining({ hopKey: 'alpha::beta' }),
-        },
-        {
-          action: 'create',
-          payload: expect.objectContaining({ hopKey: 'beta::gamma' }),
-        },
-      ]);
-      expect(transactionExecMock).toHaveBeenCalledTimes(1);
+    expect(getLinkMock).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      linkKey: 'alpha::beta',
+      from: 'alpha',
+      to: 'beta',
     });
-
-    it('falls back to a single hop when the final association is missing', async () => {
-      const hopModel = createHopModelMock({
-        transaction: {
-          create: jest.fn((payload) => ({ action: 'create', payload })),
-        },
-      });
-      const controller = buildController(hopModel);
-      const from = createWord('alpha');
-      const to = createWord('beta');
-      const final = createWord('gamma');
-
-      getAssociationsMock.mockReturnValueOnce('alpha-beta');
-      getAssociationsMock.mockImplementationOnce(() => {
-        throw new Error('Not linked');
-      });
-      transactionExecMock.mockResolvedValue(['hop-primary']);
-
-      const result = await controller.attemptHop({ from, to, final }, meta);
-
-      expect(result).toEqual(['hop-primary']);
-      expect(hopModel.transaction.create).toHaveBeenCalledTimes(1);
-      expect(hopModel.transaction.create).toHaveBeenCalledWith(
-        expect.objectContaining({ hopKey: 'alpha::beta' }),
-      );
-      expect(mockTransaction).toHaveBeenCalledWith([
-        {
-          action: 'create',
-          payload: expect.objectContaining({ hopKey: 'alpha::beta' }),
-        },
-      ]);
+    expect(result[1]).toMatchObject({
+      linkKey: 'beta::gamma',
+      from: 'beta',
+      to: 'gamma',
     });
   });
 
-  it('passes through getById', async () => {
-    const hopModel = createHopModelMock({
-      get: jest.fn().mockResolvedValue('hop'),
-    });
+  it('removeMany delegates to batchDelete and evicts cache', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+    const item = hop({ id: 'rm-1' });
 
-    const result = await buildController(hopModel).getById('hop-id');
+    HopModel.get.mockResolvedValue(item);
+    const controller = createHopController(HopModel, LinkModel);
+    await controller.getById('rm-1'); // populate cache
 
-    expect(result).toBe('hop');
-    expect(hopModel.get).toHaveBeenCalledWith('hop-id');
-  });
+    await controller.removeMany(['rm-1']);
 
-  it('passes through getMany', async () => {
-    const hopModel = createHopModelMock({
-      batchGet: jest.fn().mockResolvedValue(['hop-1', 'hop-2']),
-    });
-
-    const result = await buildController(hopModel).getMany(['hop-1', 'hop-2']);
-
-    expect(result).toEqual(['hop-1', 'hop-2']);
-    expect(hopModel.batchGet).toHaveBeenCalledWith(['hop-1', 'hop-2']);
-  });
-
-  it('proxies query to the model query', async () => {
-    const exec = jest.fn().mockResolvedValue(['hop']);
-    const hopModel = createHopModelMock({
-      query: jest.fn().mockReturnValue({ exec }),
-    });
-
-    const query = {
-      ownerId: 'owner-1',
-      associations: 'rhymes',
-    } as unknown as HopQuery;
-
-    const result = await buildController(hopModel).query(query);
-
-    expect(hopModel.query).toHaveBeenCalledWith({
-      ownerId: { eq: 'owner-1' },
-      associations: { contains: 'rhymes' },
-    });
-    expect(result).toEqual(['hop']);
-  });
-
-  it('calls batchDelete during removeMany', async () => {
-    const hopModel = createHopModelMock({
-      batchDelete: jest.fn().mockResolvedValue(undefined),
-    });
-
-    const result = await buildController(hopModel).removeMany([
-      'hop-1',
-      'hop-2',
-    ]);
-
-    expect(result).toEqual({ ok: true });
-    expect(hopModel.batchDelete).toHaveBeenCalledWith(['hop-1', 'hop-2']);
+    expect(HopModel.batchDelete).toHaveBeenCalledWith(['rm-1']);
+    // next call will miss cache and hit model.get again
+    await controller.getById('rm-1');
+    expect(HopModel.get).toHaveBeenCalledTimes(2);
   });
 });

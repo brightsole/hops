@@ -10,18 +10,25 @@ export default $config({
     };
   },
   async run() {
+    const linksTable = new sst.aws.Dynamo('Links', {
+      fields: {
+        id: 'string',
+      },
+      primaryIndex: { hashKey: 'id' },
+      deletionProtection: $app.stage === 'production',
+    });
     const hopsTable = new sst.aws.Dynamo('Hops', {
       fields: {
         id: 'string',
         gameId: 'string',
-        hopKey: 'string',
+        linkKey: 'string',
         ownerId: 'string',
         attemptId: 'string',
         associations: 'string',
       },
       globalIndexes: {
-        hopKey: { hashKey: 'hopKey' },
         gameId: { hashKey: 'gameId' },
+        linkKey: { hashKey: 'linkKey' },
         ownerId: { hashKey: 'ownerId' },
         attemptId: { hashKey: 'attemptId' },
         associations: { hashKey: 'associations' },
@@ -31,7 +38,7 @@ export default $config({
     });
 
     const api = new sst.aws.ApiGatewayV2('Api', {
-      link: [hopsTable],
+      link: [hopsTable, linksTable],
     });
 
     // new sst.aws.Cron('KeepWarmCron', {
@@ -54,9 +61,9 @@ export default $config({
       description: `API Gateway URL for ${$app.name} ${$app.stage}`,
     });
     // roughly how to get the api url in fed gateway:
-    // const hopsApiUrl = await aws.ssm.getParameter({
-    //   name: `/sst/hops-service/${$app.stage}/api-url`,
-    // });
+    const wordsApiUrl = await aws.ssm.getParameter({
+      name: `/sst/words-service/${$app.stage}/api-url`,
+    });
     // then you put it into the environment below
 
     const functionConfig = {
@@ -67,7 +74,9 @@ export default $config({
         format: 'esm',
       },
       environment: {
-        TABLE_NAME: hopsTable.name,
+        HOPS_TABLE_NAME: hopsTable.name,
+        LINKS_TABLE_NAME: linksTable.name,
+        WORDS_API_URL: wordsApiUrl.value,
       },
     } as const;
 
@@ -76,19 +85,23 @@ export default $config({
       handler: 'src/graphqlHandler.handler',
     });
 
-    api.route('ANY /items', {
+    api.route('ANY /hops', {
       ...functionConfig,
       handler: 'src/restHandler.handler',
     });
 
-    api.route('ANY /items/{proxy+}', {
+    api.route('ANY /hops/{proxy+}', {
       ...functionConfig,
       handler: 'src/restHandler.handler',
     });
+
+    // in the future we may expose links via REST too
+    // minimal non-user records can make for fun charts
 
     return {
       apiUrl: api.url,
       hopsTableName: hopsTable.name,
+      linksTableName: linksTable.name,
     };
   },
 });
