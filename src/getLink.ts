@@ -33,8 +33,10 @@ export const getLink = async (
 
   try {
     const link = await LinkModel.get(orderedWordsKey);
-    linkCache.set(orderedWordsKey, link);
-    return link;
+    if (link) {
+      linkCache.set(orderedWordsKey, link);
+      return link;
+    }
   } catch {
     /* fine to not find pre-created link */
   }
@@ -52,7 +54,7 @@ export const getLink = async (
     updatedAt: Date.now(),
   };
 
-  await LinkModel.create(newLink);
-  linkCache.set(orderedWordsKey, newLink);
-  return newLink;
+  const result = await LinkModel.create(newLink);
+  linkCache.set(orderedWordsKey, result);
+  return result;
 };

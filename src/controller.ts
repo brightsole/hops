@@ -1,4 +1,4 @@
-import { model, transaction } from 'dynamoose';
+import { model } from 'dynamoose';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { Context, DBHop, DBLink, DBHopModel, DBLinkModel } from './types';
@@ -38,16 +38,16 @@ export const createHopController = (
   // uncached for now: evaluate query caching first
   getMany: (ids: string[]) => HopModel.batchGet(ids),
 
-  query: (queryObject: HopQueryInput) => {
+  query: async (queryObject: HopQueryInput) => {
     const builtQuery = Object.entries(queryObject).reduce(
       (acc, [key, value]) => {
         // also, these act as a filter. other properties are ignored
         if (value === undefined) return acc;
 
-        if (['ownerId', 'gameId', 'attemptId', 'hopKey'].includes(key))
+        if (['ownerId', 'gameId', 'attemptId'].includes(key))
           return { ...acc, [key]: { eq: value } };
 
-        if (['hopKey', 'associations'].includes(key))
+        if (['linkKey', 'associations'].includes(key))
           return { ...acc, [key]: { contains: value } };
 
         return acc;
@@ -59,14 +59,10 @@ export const createHopController = (
     const cached = queryCache.get(key);
     if (cached) return Promise.resolve(cached);
 
-    return HopModel.query(builtQuery)
-      .exec()
-      .then((items: DBHop[]) => {
-        // populate both caches
-        items.forEach((item: DBHop) => hopCache.set(item.id, item));
-        queryCache.set(key, items);
-        return items;
-      });
+    const results = await HopModel.query(builtQuery).exec();
+
+    queryCache.set(key, results);
+    return results;
   },
 
   attemptHop: async (
@@ -82,33 +78,31 @@ export const createHopController = (
       /* do nothing, final not guaranteed */
     }
 
-    const ops = [
-      HopModel.transaction.create({
-        linkKey: firstLink.id,
-        associations: firstLink.associations,
-        from: from,
-        to: to,
+    const hop = await HopModel.create({
+      linkKey: firstLink.id,
+      associations: firstLink.associations,
+      from: from,
+      to: to,
+      ownerId: userInfo.userId,
+      gameId: userInfo.gameId,
+      attemptId: userInfo.attemptId,
+      id: nanoid(),
+    });
+    let finalHop = null;
+    if (finalAssociation) {
+      finalHop = await HopModel.create({
+        id: nanoid(),
+        linkKey: finalAssociation.id,
+        associations: finalAssociation.associations,
+        from: to,
+        to: final,
         ownerId: userInfo.userId,
         gameId: userInfo.gameId,
         attemptId: userInfo.attemptId,
-        id: nanoid(),
-      }),
-      finalAssociation
-        ? HopModel.transaction.create({
-            id: nanoid(),
-            linkKey: finalAssociation.id,
-            associations: finalAssociation.associations,
-            from: to,
-            to: final,
-            ownerId: userInfo.userId,
-            gameId: userInfo.gameId,
-            attemptId: userInfo.attemptId,
-          })
-        : null,
-    ].filter(isPresent);
+      });
+    }
 
-    const results = await transaction(ops).exec();
-
+    const results = [hop, finalHop].filter(isPresent);
     results.forEach((item: DBHop) => hopCache.set(item.id, item));
     return results;
   },

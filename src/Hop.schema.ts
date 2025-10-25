@@ -24,10 +24,10 @@ export default new Schema(
     },
     from: { type: String },
     to: { type: String },
-    hopKey: {
+    linkKey: {
       type: String,
       required: true,
-      index: { name: 'hopKey', type: 'global' },
+      index: { name: 'linkKey', type: 'global' },
     },
     associations: {
       type: String,

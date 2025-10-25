@@ -13,6 +13,10 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Dynamo"
     }
+    "Links": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
   }
 }
 /// <reference path="sst-env.d.ts" />

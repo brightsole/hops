@@ -54,7 +54,11 @@ describe('getLink', () => {
         .fn<Promise<DBLink>, [string]>()
         .mockRejectedValue(new Error('not found'));
     const createMock =
-      overrides.create ?? jest.fn<Promise<DBLink>, [Partial<DBLink>]>();
+      overrides.create ??
+      jest
+        .fn<Promise<DBLink>, [Partial<DBLink>]>()
+        // default create resolves with the input link to match either implementation
+        .mockImplementation(async (link) => link as DBLink);
     const modelUnknown: unknown = {
       get: getMock,
       create: createMock,

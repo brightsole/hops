@@ -41,9 +41,7 @@ type HopModelMock = {
   batchGet: jest.Mock<Promise<unknown>, [string[]]>;
   query: jest.Mock<{ exec: jest.Mock<Promise<unknown>, []> }, [unknown]>;
   batchDelete: jest.Mock<Promise<unknown>, [string[]]>;
-  transaction: {
-    create: jest.Mock<{ type: string; item: unknown }, [unknown]>;
-  };
+  create: jest.Mock<Promise<unknown>, [Record<string, unknown>]>;
 };
 
 type LinkModelMock = {
@@ -57,7 +55,11 @@ const createHopModel = () =>
     batchGet: jest.fn(),
     query: jest.fn().mockReturnValue({ exec: jest.fn() }),
     batchDelete: jest.fn(),
-    transaction: { create: jest.fn((item) => ({ type: 'create', item })) },
+    create: jest.fn(async (item: Record<string, unknown>) => ({
+      ...item,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })),
   }) as DBHopModel & HopModelMock;
 
 const createLinkModel = () =>
@@ -117,7 +119,7 @@ describe('Hop controller', () => {
     expect(res).toEqual([hop({ id: 'm-1' })]);
   });
 
-  it('query caches results and populates hop cache', async () => {
+  it('query caches results', async () => {
     const HopModel = createHopModel();
     const LinkModel = createLinkModel();
     const items = [hop({ id: 'q-1' }), hop({ id: 'q-2' })];
@@ -137,10 +139,10 @@ describe('Hop controller', () => {
     expect(HopModel.query).toHaveBeenCalledTimes(1);
     expect(second).toEqual(items);
 
-    // getById should return from hop cache without calling model.get
-    const got = await controller.getById('q-1');
-    expect(HopModel.get).not.toHaveBeenCalled();
-    expect(got).toEqual(items[0]);
+    // third identical query still hits cache
+    const third = await controller.query({ ownerId: 'o-1' });
+    expect(HopModel.query).toHaveBeenCalledTimes(1);
+    expect(third).toEqual(items);
   });
 
   it('attemptHop creates one hop when final is absent', async () => {
