@@ -12,7 +12,12 @@ import LinkSchema from './Link.schema';
 import env from './env';
 
 const hopCache = new LRUCache<string, DBHop>({
-  max: 100, // may not be used much, still may as well cache
+  max: 100, // may not be used much, still, may as well cache
+});
+
+// cache for frequent queries (built filter objects); keep modest to avoid staleness
+const queryCache = new LRUCache<string, DBHop[]>({
+  max: 100,
 });
 
 const isPresent = <T>(value: T | null | undefined): value is T => value != null;
@@ -21,8 +26,16 @@ export const createHopController = (
   HopModel: DBHopModel,
   linkModel: DBLinkModel,
 ) => ({
-  getById: (id: string) => HopModel.get(id),
+  getById: async (id: string) => {
+    const cached = hopCache.get(id);
+    if (cached) return cached;
 
+    const item = await HopModel.get(id);
+    if (item) hopCache.set(id, item);
+    return item;
+  },
+
+  // uncached for now: evaluate query caching first
   getMany: (ids: string[]) => HopModel.batchGet(ids),
 
   query: (queryObject: HopQueryInput) => {
@@ -42,7 +55,18 @@ export const createHopController = (
       {},
     );
 
-    return HopModel.query(builtQuery).exec();
+    const key = JSON.stringify(builtQuery);
+    const cached = queryCache.get(key);
+    if (cached) return Promise.resolve(cached);
+
+    return HopModel.query(builtQuery)
+      .exec()
+      .then((items: DBHop[]) => {
+        // populate both caches
+        items.forEach((item: DBHop) => hopCache.set(item.id, item));
+        queryCache.set(key, items);
+        return items;
+      });
   },
 
   attemptHop: async (
@@ -54,7 +78,7 @@ export const createHopController = (
     let finalAssociation = null;
     try {
       finalAssociation = await getLink(linkModel, to, final);
-    } catch (_error) {
+    } catch {
       /* do nothing, final not guaranteed */
     }
 
@@ -83,12 +107,16 @@ export const createHopController = (
         : null,
     ].filter(isPresent);
 
-    return transaction(ops).exec();
+    const results = await transaction(ops).exec();
+
+    results.forEach((item: DBHop) => hopCache.set(item.id, item));
+    return results;
   },
 
   removeMany: async (ids: string[]) => {
     // validation for this must happen in the gateway layer
     await HopModel.batchDelete(ids);
+    ids.forEach((id: string) => hopCache.delete(id));
 
     return { ok: true };
   },

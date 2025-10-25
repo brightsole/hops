@@ -43,11 +43,7 @@ describe('Resolver full path', () => {
             args: Record<string, unknown>,
             meta: Record<string, unknown>,
           ) => {
-            const hopInput =
-              typeof args.input === 'object' && args.input !== null
-                ? (args.input as typeof input)
-                : (args as unknown as typeof input);
-            expect(hopInput).toEqual(input);
+            expect(args.input).toEqual(input);
             expect(meta).toMatchObject(userInfo);
 
             return {

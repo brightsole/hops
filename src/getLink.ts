@@ -33,7 +33,7 @@ export const getLink = async (
     const link = await LinkModel.get(orderedWordsKey);
     linkCache.set(orderedWordsKey, link);
     return link;
-  } catch (_error) {
+  } catch {
     /* fine to not find pre-created link */
   }
 
