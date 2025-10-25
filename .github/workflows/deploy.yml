@@ -1,19 +1,19 @@
-name: Deploy preview environment
+name: Deploy to Production
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
-  deploy-preview:
+  deploy-production:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     env:
-      SST_STAGE: preview
+      NODE_ENV: production
+      SST_STAGE: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,5 +45,5 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           mask-aws-account-id: true
 
-      - name: Deploy SST stack
+      - name: Deploy to production
         run: npx sst deploy --stage $SST_STAGE
