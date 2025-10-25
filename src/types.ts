@@ -13,12 +13,13 @@ export interface LambdaContextFunctionArgument {
   context: LambdaContext;
 }
 
+/* External data types */
 type Association = {
   type: string;
   score?: number;
 };
 
-type Link = {
+type WordLink = {
   name: string;
   associations: Association[];
 };
@@ -26,50 +27,42 @@ type Link = {
 export type Word = {
   cacheExpiryDate: number;
   updatedAt: number;
+  links: WordLink[];
   version: number;
-  links: Link[];
   name: string;
 };
 
-export type Hop = {
+/* internal database/dynamoose types */
+export type DBHop = DynamooseItem & {
+  id: string;
+  linkKey: string;
+  associations: string;
+  from: string;
+  to: string;
+  attemptId: string;
+  ownerId: string;
+  gameId: string;
+  createdAt: number;
+  updatedAt: number;
+};
+export type DBHopModel = Model<DBHop>;
+
+export type Link = {
+  id: string;
   associations: string;
   createdAt: number;
   updatedAt: number;
-  attemptId: string;
-  ownerId: string;
-  gameId: string;
-  hopKey: string;
-  from: string;
-  to: string;
-  id: string;
 };
-export type DBHop = DynamooseItem & Hop;
-export type ModelType = Model<DBHop>;
+export type DBLink = DynamooseItem & Link;
+export type DBLinkModel = Model<DBLink>;
 
-export type IdObject = {
-  id: string;
-};
-
-export type HopInput = { from: Word; to: Word; final: Word };
-
-export type HopQuery = {
-  associations?: string;
-  attemptId?: string;
-  ownerId?: string;
-  gameId?: string;
-  hopKey?: string;
-};
-
+/* other useful types not generated */
 export type Context = {
   hopController: ReturnType<typeof createHopController>;
   attemptId: string;
-  ownerId: string;
+  userId: string;
   gameId: string;
   event: unknown;
-};
-
-export type Affirmative = {
-  ok: boolean;
 };
 
 export enum ASSOCIATION_TYPES {

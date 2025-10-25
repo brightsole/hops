@@ -1,18 +1,31 @@
 import { model, transaction } from 'dynamoose';
+import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
-import type { Word, DBHop, HopQuery, ModelType, HopInput } from './types';
+import type { Context, DBHop, DBLink, DBHopModel, DBLinkModel } from './types';
+import type {
+  HopQueryInput,
+  MutationAttemptHopArgs,
+} from './generated/graphql';
+import { getLink } from './getLink';
 import HopSchema from './Hop.schema';
+import LinkSchema from './Link.schema';
 import env from './env';
-import { getAssociations } from './getAssociations';
+
+const hopCache = new LRUCache<string, DBHop>({
+  max: 100, // may not be used much, still may as well cache
+});
 
 const isPresent = <T>(value: T | null | undefined): value is T => value != null;
 
-export const createHopController = (HopModel: ModelType) => ({
+export const createHopController = (
+  HopModel: DBHopModel,
+  linkModel: DBLinkModel,
+) => ({
   getById: (id: string) => HopModel.get(id),
 
   getMany: (ids: string[]) => HopModel.batchGet(ids),
 
-  query: (queryObject: HopQuery) => {
+  query: (queryObject: HopQueryInput) => {
     const builtQuery = Object.entries(queryObject).reduce(
       (acc, [key, value]) => {
         // also, these act as a filter. other properties are ignored
@@ -33,34 +46,39 @@ export const createHopController = (HopModel: ModelType) => ({
   },
 
   attemptHop: async (
-    { from, to, final }: HopInput,
-    userInfo: { ownerId: string; gameId: string; attemptId: string },
+    { from, to, final }: MutationAttemptHopArgs,
+    userInfo: Pick<Context, 'userId' | 'gameId' | 'attemptId'>,
   ): Promise<DBHop[]> => {
-    const hopAssociation = getAssociations(from, to);
+    const firstLink = await getLink(linkModel, from, to);
 
     let finalAssociation = null;
     try {
-      finalAssociation = getAssociations(to, final);
+      finalAssociation = await getLink(linkModel, to, final);
     } catch (_error) {
       /* do nothing, final not guaranteed */
     }
 
     const ops = [
       HopModel.transaction.create({
-        hopKey: `${from.name}::${to.name}`,
-        associations: hopAssociation,
-        from: from.name,
-        to: to.name,
-        ...userInfo,
+        linkKey: firstLink.id,
+        associations: firstLink.associations,
+        from: from,
+        to: to,
+        ownerId: userInfo.userId,
+        gameId: userInfo.gameId,
+        attemptId: userInfo.attemptId,
+        id: nanoid(),
       }),
       finalAssociation
         ? HopModel.transaction.create({
             id: nanoid(),
-            hopKey: `${to.name}::${final.name}`,
-            associations: finalAssociation,
-            from: to.name,
-            to: final.name,
-            ...userInfo,
+            linkKey: finalAssociation.id,
+            associations: finalAssociation.associations,
+            from: to,
+            to: final,
+            ownerId: userInfo.userId,
+            gameId: userInfo.gameId,
+            attemptId: userInfo.attemptId,
           })
         : null,
     ].filter(isPresent);
@@ -77,7 +95,8 @@ export const createHopController = (HopModel: ModelType) => ({
 });
 
 export const startController = () => {
-  const hopModel = model<DBHop>(env.tableName, HopSchema);
+  const hopModel = model<DBHop>(env.hopsTableName, HopSchema);
+  const linkModel = model<DBLink>(env.linksTableName, LinkSchema);
 
-  return createHopController(hopModel);
+  return createHopController(hopModel, linkModel);
 };

@@ -11,12 +11,12 @@ describe('Resolver full path', () => {
     const server = getGraphqlServer();
 
     const attemptHopMutation = gql`
-      mutation AttemptHop($input: AttemptHopInput!, $userInfo: UserInfo!) {
-        attemptHop(input: $input, userInfo: $userInfo) {
+      mutation AttemptHop($from: ID!, $to: ID!, $final: ID!) {
+        attemptHop(from: $from, to: $to, final: $final) {
           id
           from
           to
-          hopKey
+          linkKey
           ownerId
           gameId
         }
@@ -30,18 +30,9 @@ describe('Resolver full path', () => {
     };
 
     const input = {
-      from: {
-        name: 'alpha',
-        links: [{ name: 'alpha-link', associations: [] }],
-      },
-      to: {
-        name: 'beta',
-        links: [{ name: 'beta-link', associations: [] }],
-      },
-      final: {
-        name: 'gamma',
-        links: [{ name: 'gamma-link', associations: [] }],
-      },
+      from: 'alpha',
+      to: 'beta',
+      final: 'gamma',
     };
 
     const hopController = {
@@ -65,9 +56,9 @@ describe('Resolver full path', () => {
               attemptId: userInfo.attemptId,
               ownerId: userInfo.ownerId,
               gameId: userInfo.gameId,
-              hopKey: `${input.from.name}::${input.to.name}`,
-              from: input.from.name,
-              to: input.to.name,
+              linkKey: `${input.from}::${input.to}`,
+              from: input.from,
+              to: input.to,
               createdAt: Date.now(),
               updatedAt: Date.now(),
             };
@@ -82,10 +73,7 @@ describe('Resolver full path', () => {
     const { body } = await server.executeOperation(
       {
         query: attemptHopMutation,
-        variables: {
-          input,
-          userInfo,
-        },
+        variables: input,
       },
       {
         contextValue: {
@@ -106,9 +94,9 @@ describe('Resolver full path', () => {
     expect(singleResult.data).toEqual({
       attemptHop: {
         id: expect.any(String),
-        from: input.from.name,
-        to: input.to.name,
-        hopKey: `${input.from.name}::${input.to.name}`,
+        from: input.from,
+        to: input.to,
+        linkKey: `${input.from}::${input.to}`,
         ownerId: userInfo.ownerId,
         gameId: userInfo.gameId,
       },

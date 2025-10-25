@@ -23,43 +23,16 @@ export default gql`
     attemptId: String
     ownerId: String
     gameId: String
-    hopKey: String
+    linkKey: ID!
     createdAt: DateTime
     updatedAt: DateTime
-  }
-
-  input UserInfo {
-    attemptId: String!
-    ownerId: String!
-    gameId: String!
-  }
-
-  input Association {
-    type: String!
-    score: Float
-  }
-
-  input Link {
-    name: ID!
-    associations: [Association!]!
-  }
-
-  input Word {
-    name: ID!
-    links: [Link!]!
-  }
-
-  input AttemptHopInput {
-    from: Word!
-    to: Word!
-    final: Word!
   }
 
   input HopQueryInput {
     ownerId: String
     gameId: String
     attemptId: String
-    hopKey: String
+    linkKey: ID
     associations: String
   }
 
@@ -69,7 +42,7 @@ export default gql`
   }
 
   type Mutation {
-    attemptHop(input: AttemptHopInput!, userInfo: UserInfo!): Hop
+    attemptHop(from: ID!, to: ID!, final: ID!): [Hop]
     deleteHops(ids: [String!]!): Affirmative
   }
 `;
