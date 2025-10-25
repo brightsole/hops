@@ -16,7 +16,7 @@ jest.mock('./env', () => ({
 
 describe('getLink', () => {
   const NOW = new Date('2024-01-02T03:04:05.000Z');
-  type MockResponse<T> = { json: () => Promise<T> };
+  type MockResponse<T> = { ok: boolean; json: () => Promise<T> };
   type TestFetch = jest.Mock<
     Promise<MockResponse<Word>>,
     [string, RequestInit?]
@@ -71,8 +71,19 @@ describe('getLink', () => {
     version: 1,
   });
 
-  const mockFetchWordJson = (w: Word) => ({
+  const mockFetchWordJson = (w: Word): MockResponse<Word> => ({
+    ok: true,
     json: async () => w,
+  });
+
+  const mockFetchWordError = (): MockResponse<Word> => ({
+    ok: false,
+    // json will not be called when ok is false, but keep shape consistent
+
+    json: async () =>
+      ({
+        // this is never used
+      }) as unknown as Word,
   });
 
   it('returns immediately from in-memory cache without DB or network', async () => {
@@ -242,5 +253,20 @@ describe('getLink', () => {
       3,
       'http://words.example.test/words/gamma5',
     );
+  });
+
+  it('propagates words service errors (non-OK response)', async () => {
+    const { model: LinkModel, createMock } = createLinkModelDouble();
+
+    // from succeeds, to fails
+    mockFetch
+      .mockResolvedValueOnce(mockFetchWordJson(word('alpha6')))
+      .mockResolvedValueOnce(mockFetchWordError());
+
+    await expect(getLink(LinkModel, 'alpha6', 'beta6')).rejects.toThrow(
+      'Word not found: beta6',
+    );
+
+    expect(createMock).not.toHaveBeenCalled();
   });
 });

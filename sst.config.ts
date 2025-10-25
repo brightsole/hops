@@ -95,6 +95,9 @@ export default $config({
       handler: 'src/restHandler.handler',
     });
 
+    // in the future we may expose links via REST too
+    // minimal non-user records can make for fun charts
+
     return {
       apiUrl: api.url,
       hopsTableName: hopsTable.name,

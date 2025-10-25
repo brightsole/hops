@@ -2,11 +2,11 @@ import { cleanEnv, str } from 'envalid';
 
 const env = cleanEnv(process.env, {
   HOPS_TABLE_NAME: str({
-    desc: 'DynamoDB table name for items',
+    desc: 'DynamoDB table name for user hops',
     default: 'ABJECT_FAILURE', // keep it from hard erroring if you screw up env vars
   }),
   LINKS_TABLE_NAME: str({
-    desc: 'DynamoDB table name for items',
+    desc: 'DynamoDB table name for work linkages',
     default: 'ABJECT_FAILURE', // keep it from hard erroring if you screw up env vars
   }),
   AWS_REGION: str({ default: 'ap-southeast-2' }),
