@@ -14,6 +14,10 @@ jest.mock('./getLink', () => ({
   getLink: jest.fn(),
 }));
 
+// Mock fetch to prevent network requests
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
 // Mock dynamoose transaction only (we inject models ourselves)
 jest.mock('dynamoose', () => ({
   __esModule: true,
@@ -88,6 +92,7 @@ const getLinkMock = getLink as jest.MockedFunction<typeof getLink>;
 describe('Hop controller', () => {
   beforeEach(() => {
     getLinkMock.mockReset();
+    mockFetch.mockReset();
   });
 
   it('getById caches results on subsequent calls', async () => {

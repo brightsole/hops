@@ -16,7 +16,6 @@ const env = cleanEnv(process.env, {
   }),
   WORDS_API_URL: str({
     desc: 'URL for Words Service API Gateway',
-    default: '',
   }),
 });
 
