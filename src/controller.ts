@@ -105,12 +105,24 @@ export const createHopController = (
         id: nanoid(),
         linkKey: finalAssociation.id,
         associationsKey: finalAssociation.associationsKey,
-        from: to,
-        to: final,
+        from: normalTo,
+        to: normalFinal,
         isFinal: true,
         ownerId: userInfo.userId,
         gameId: userInfo.gameId,
         attemptId: userInfo.attemptId,
+      });
+      await fetch(`${env.solvesQueueUrl}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: userInfo.attemptId,
+          ownerId: userInfo.userId,
+          gameId: userInfo.gameId,
+          finalHopId: finalHop.id,
+        }),
       });
     }
 

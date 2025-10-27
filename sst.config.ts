@@ -64,11 +64,15 @@ export default $config({
       value: api.url,
       description: `API Gateway URL for ${$app.name} ${$app.stage}`,
     });
-    // roughly how to get the api url in fed gateway:
+    // only get the url of services "below" this one
     const wordsApiUrl = await aws.ssm.getParameter({
       name: `/sst/words-service/${$app.stage}/api-url`,
     });
-    // then you put it into the environment below
+    // the url of the queue exists for going "up" the chain
+    // without causing a caustic mess of circular deps/calls
+    const solvesQueueUrl = await aws.ssm.getParameter({
+      name: `/sst/solves-service/${$app.stage}/queue-url`,
+    });
 
     const functionConfig = {
       runtime: 'nodejs22.x',
@@ -81,6 +85,7 @@ export default $config({
         HOPS_TABLE_NAME: hopsTable.name,
         LINKS_TABLE_NAME: linksTable.name,
         WORDS_API_URL: wordsApiUrl.value,
+        SOLVES_QUEUE_URL: solvesQueueUrl.value,
       },
     } as const;
 
