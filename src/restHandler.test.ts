@@ -17,6 +17,7 @@ const createControllerDouble = (
   query: jest.fn().mockRejectedValue('unexpected query'),
   getMany: jest.fn().mockRejectedValue('unexpected getMany'),
   removeMany: jest.fn().mockRejectedValue('unexpected removeMany'),
+  testLink: jest.fn().mockRejectedValue('unexpected testLink'),
   ...overrides,
 });
 

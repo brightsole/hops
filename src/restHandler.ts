@@ -33,6 +33,17 @@ export const createRestApp = () => {
     res.json(hops);
   });
 
+  // technically we don't care about the response, other than errors
+  app.post('/hops/linked', async (req, res) => {
+    const { from, to } = req.body;
+    try {
+      const linkedResults = await hopsController.testLink(from, to);
+      res.json(linkedResults);
+    } catch {
+      res.status(404).json({ error: 'No link found' });
+    }
+  });
+
   app.delete('/hops', async (req, res) => {
     if (
       !Array.isArray(req.query.ids) ||

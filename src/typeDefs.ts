@@ -11,7 +11,7 @@ export default gql`
     )
 
   type Affirmative {
-    ok: Boolean!
+    ok: Boolean! @shareable
   }
 
   type Hop @key(fields: "id") {
