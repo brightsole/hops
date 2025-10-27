@@ -10,6 +10,7 @@ import { getLink } from './getLink';
 import HopSchema from './Hop.schema';
 import LinkSchema from './Link.schema';
 import env from './env';
+import { normalizeWord } from './sanitize';
 
 const hopCache = new LRUCache<string, DBHop>({
   max: 100, // may not be used much, still, may as well cache
@@ -65,15 +66,25 @@ export const createHopController = (
     return results;
   },
 
+  testLink: (from: string, to: string) => getLink(linkModel, from, to), // exposed for game submission checks
+
   attemptHop: async (
     { from, to, final }: MutationAttemptHopArgs,
     userInfo: Pick<Context, 'userId' | 'gameId' | 'attemptId'>,
   ): Promise<DBHop[]> => {
-    const firstLink = await getLink(linkModel, from, to);
+    const normalTo = normalizeWord(to);
+    const normalFrom = normalizeWord(from);
+    const normalFinal = normalizeWord(final);
+
+    if (normalFrom === normalTo || normalTo === normalFinal) {
+      throw new Error('Unable to guess the same words');
+    }
+
+    const firstLink = await getLink(linkModel, normalFrom, normalTo);
 
     let finalAssociation = null;
     try {
-      finalAssociation = await getLink(linkModel, to, final);
+      finalAssociation = await getLink(linkModel, normalTo, normalFinal);
     } catch {
       /* do nothing, final not guaranteed */
     }
@@ -81,8 +92,8 @@ export const createHopController = (
     const hop = await HopModel.create({
       linkKey: firstLink.id,
       associationsKey: firstLink.associationsKey,
-      from: from,
-      to: to,
+      from: normalFrom,
+      to: normalTo,
       ownerId: userInfo.userId,
       gameId: userInfo.gameId,
       attemptId: userInfo.attemptId,

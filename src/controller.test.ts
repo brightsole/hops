@@ -247,4 +247,36 @@ describe('Hop controller', () => {
     await controller.getById('rm-1');
     expect(HopModel.get).toHaveBeenCalledTimes(2);
   });
+
+  it('attemptHop throws error when from and to are the same', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+    const controller = createHopController(HopModel, LinkModel);
+
+    await expect(
+      controller.attemptHop(
+        { from: 'alpha', to: 'alpha', final: 'beta' },
+        { userId: 'u', gameId: 'g', attemptId: 'x' },
+      ),
+    ).rejects.toThrow('Unable to guess the same words');
+
+    expect(getLinkMock).not.toHaveBeenCalled();
+    expect(HopModel.create).not.toHaveBeenCalled();
+  });
+
+  it('attemptHop throws error when to and final are the same', async () => {
+    const HopModel = createHopModel();
+    const LinkModel = createLinkModel();
+    const controller = createHopController(HopModel, LinkModel);
+
+    await expect(
+      controller.attemptHop(
+        { from: 'alpha', to: 'beta', final: 'beta' },
+        { userId: 'u', gameId: 'g', attemptId: 'x' },
+      ),
+    ).rejects.toThrow('Unable to guess the same words');
+
+    expect(getLinkMock).not.toHaveBeenCalled();
+    expect(HopModel.create).not.toHaveBeenCalled();
+  });
 });
