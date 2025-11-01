@@ -38,7 +38,7 @@ export const createHopController = (
     const builtQuery = Object.entries(queryObject).reduce(
       (acc, [key, value]) => {
         // also, these act as a filter. other properties are ignored
-        if (value === undefined) return acc;
+        if (!value) return acc;
 
         if (['ownerId', 'gameId', 'attemptId'].includes(key))
           return { ...acc, [key]: { eq: value } };
