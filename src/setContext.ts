@@ -12,10 +12,6 @@ export const setContext: ContextFunction<
   const attemptId = event.headers['x-attempt-id'];
   const hopController = startController();
 
-  if (!userId || !gameId || !attemptId) {
-    throw new Error('Missing required headers');
-  }
-
   return {
     ...context,
     userId,
