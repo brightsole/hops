@@ -1,5 +1,5 @@
 import serverlessExpress from '@vendia/serverless-express';
-import express from 'express';
+import express, { Request } from 'express';
 import { startController } from './controller';
 
 export const createRestApp = () => {
@@ -69,17 +69,40 @@ export const createRestApp = () => {
     }
   });
 
-  app.delete('/hops', async (req, res) => {
-    if (
-      !Array.isArray(req.query.ids) ||
-      req.query.ids.some((id) => typeof id !== 'string')
-    ) {
-      res.status(400).json({ error: 'ids query parameter must be an array' });
-      return;
-    }
-    const result = await hopsController.removeMany(req.query.ids as string[]);
-    res.json(result);
-  });
+  app.delete(
+    '/hops',
+    async (
+      req: Request<unknown, unknown, unknown, { attemptId: string }>,
+      res,
+    ) => {
+      const { attemptId } = req.query;
+
+      if (!attemptId) {
+        res
+          .status(400)
+          .json({ error: 'attemptId query parameter is required' });
+        return;
+      }
+
+      try {
+        const hops = await hopsController.query({ attemptId });
+        const hopIds = hops.map((hop) => hop.id);
+
+        if (hopIds.length === 0) {
+          res.json({ ok: true, deleted: 0 });
+          return;
+        }
+
+        const result = await hopsController.removeMany(hopIds);
+        res.json({ ...result, deleted: hopIds.length });
+      } catch (error) {
+        res.status(500).json({
+          error:
+            error instanceof Error ? error.message : 'Failed to delete hops',
+        });
+      }
+    },
+  );
 
   return app;
 };
