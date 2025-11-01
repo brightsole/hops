@@ -20,11 +20,6 @@ export type Scalars = {
   _FieldSet: { input: any; output: any; }
 };
 
-export type Affirmative = {
-  __typename?: 'Affirmative';
-  ok: Scalars['Boolean']['output'];
-};
-
 export type Hop = {
   __typename?: 'Hop';
   associationsKey?: Maybe<Scalars['String']['output']>;
@@ -47,24 +42,6 @@ export type HopQueryInput = {
   gameId?: InputMaybe<Scalars['String']['input']>;
   linkKey?: InputMaybe<Scalars['ID']['input']>;
   ownerId?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type Mutation = {
-  __typename?: 'Mutation';
-  attemptHop?: Maybe<Array<Maybe<Hop>>>;
-  deleteHops?: Maybe<Affirmative>;
-};
-
-
-export type MutationAttemptHopArgs = {
-  final: Scalars['ID']['input'];
-  from: Scalars['ID']['input'];
-  to: Scalars['ID']['input'];
-};
-
-
-export type MutationDeleteHopsArgs = {
-  ids: Array<Scalars['String']['input']>;
 };
 
 export type Query = {
@@ -177,34 +154,26 @@ export type FederationReferenceTypes = {
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
-  Affirmative: ResolverTypeWrapper<Affirmative>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
   Hop: ResolverTypeWrapper<Hop>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   HopQueryInput: HopQueryInput;
   JSONObject: ResolverTypeWrapper<Scalars['JSONObject']['output']>;
-  Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
 };
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
-  Affirmative: Affirmative;
-  Boolean: Scalars['Boolean']['output'];
   DateTime: Scalars['DateTime']['output'];
   Hop: Hop | FederationReferenceTypes['Hop'];
   String: Scalars['String']['output'];
   ID: Scalars['ID']['output'];
+  Boolean: Scalars['Boolean']['output'];
   HopQueryInput: HopQueryInput;
   JSONObject: Scalars['JSONObject']['output'];
-  Mutation: Record<PropertyKey, never>;
   Query: Record<PropertyKey, never>;
-};
-
-export type AffirmativeResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Affirmative'] = ResolversParentTypes['Affirmative']> = {
-  ok?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
 };
 
 export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
@@ -231,22 +200,15 @@ export interface JsonObjectScalarConfig extends GraphQLScalarTypeConfig<Resolver
   name: 'JSONObject';
 }
 
-export type MutationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
-  attemptHop?: Resolver<Maybe<Array<Maybe<ResolversTypes['Hop']>>>, ParentType, ContextType, RequireFields<MutationAttemptHopArgs, 'final' | 'from' | 'to'>>;
-  deleteHops?: Resolver<Maybe<ResolversTypes['Affirmative']>, ParentType, ContextType, RequireFields<MutationDeleteHopsArgs, 'ids'>>;
-};
-
 export type QueryResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   hop?: Resolver<Maybe<ResolversTypes['Hop']>, ParentType, ContextType, RequireFields<QueryHopArgs, 'id'>>;
   hops?: Resolver<Maybe<Array<Maybe<ResolversTypes['Hop']>>>, ParentType, ContextType, RequireFields<QueryHopsArgs, 'query'>>;
 };
 
 export type Resolvers<ContextType = Context> = {
-  Affirmative?: AffirmativeResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
   Hop?: HopResolvers<ContextType>;
   JSONObject?: GraphQLScalarType;
-  Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
 };
 

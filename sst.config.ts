@@ -70,9 +70,13 @@ export default $config({
     });
     // the url of the queue exists for going "up" the chain
     // without causing a caustic mess of circular deps/calls
-    const solvesQueueUrl = await aws.ssm.getParameter({
-      name: `/sst/solves-service/${$app.stage}/queue-url`,
-    });
+    //
+    // We've decided to simplify hops and no longer call "up"
+    // attempts already needs to call hops and games, no reason
+    // to complicate the flow with event emission
+    // const solvesQueueUrl = await aws.ssm.getParameter({
+    //   name: `/sst/solves-service/${$app.stage}/queue-url`,
+    // });
 
     const functionConfig = {
       runtime: 'nodejs22.x',
@@ -85,7 +89,6 @@ export default $config({
         HOPS_TABLE_NAME: hopsTable.name,
         LINKS_TABLE_NAME: linksTable.name,
         WORDS_API_URL: wordsApiUrl.value,
-        SOLVES_QUEUE_URL: solvesQueueUrl.value,
       },
     } as const;
 

@@ -23,8 +23,8 @@ export default new Schema(
       index: { name: 'gameId', type: 'global' },
     },
     isFinal: { type: Boolean },
-    from: { type: String },
-    to: { type: String },
+    from: { type: String, required: true },
+    to: { type: String, required: true },
     linkKey: {
       type: String,
       required: true,

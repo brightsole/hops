@@ -1,8 +1,6 @@
 import { gql } from 'graphql-tag';
 import getGraphqlServer from '../test/getGraphqlServer';
 import { startController } from './controller';
-import type { Word } from './types';
-import type { MutationAttemptHopArgs } from './generated/graphql';
 
 // INTEGRATION TEST OF THE FULL PATH
 // only test for completion of high level access
@@ -98,18 +96,59 @@ describe('Resolver full path', () => {
     fetchMock.mockReset();
   });
 
-  it('attempts a hop without error', async () => {
+  it('queries hops by gameId without error', async () => {
     const server = getGraphqlServer();
 
-    const attemptHopMutation = gql`
-      mutation AttemptHop($from: ID!, $to: ID!, $final: ID!) {
-        attemptHop(from: $from, to: $to, final: $final) {
+    // Pre-populate mock hops with different gameIds
+    mockHops.push(
+      {
+        id: 'hop-1',
+        from: 'alpha',
+        to: 'beta',
+        linkKey: 'alpha::beta',
+        ownerId: 'owner-1',
+        gameId: 'game-1',
+        attemptId: 'attempt-1',
+        associationsKey: 'test-association',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      {
+        id: 'hop-2',
+        from: 'beta',
+        to: 'gamma',
+        linkKey: 'beta::gamma',
+        ownerId: 'owner-1',
+        gameId: 'game-1',
+        attemptId: 'attempt-1',
+        associationsKey: 'test-association-2',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      {
+        id: 'hop-3',
+        from: 'delta',
+        to: 'epsilon',
+        linkKey: 'delta::epsilon',
+        ownerId: 'owner-2',
+        gameId: 'game-2',
+        attemptId: 'attempt-2',
+        associationsKey: 'test-association-3',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+    );
+
+    const hopsQuery = gql`
+      query GetHops($query: HopQueryInput!) {
+        hops(query: $query) {
           id
           from
           to
           linkKey
           ownerId
           gameId
+          attemptId
         }
       }
     `;
@@ -120,87 +159,107 @@ describe('Resolver full path', () => {
       attemptId: 'attempt-1',
     };
 
-    const input: MutationAttemptHopArgs = {
-      from: 'alpha',
-      to: 'beta',
-      final: 'gamma',
+    const queryInput = {
+      gameId: 'game-1',
     };
 
-    // Mock words API responses for alpha/beta/gamma
-    const word = (name: string, linksArr: Word['links'] = []): Word => ({
-      name,
-      links: linksArr,
-      cacheExpiryDate: 0,
-      updatedAt: 0,
-      version: 1,
-    });
-    const words: Record<string, Word> = {
-      alpha: word('alpha', [
-        { name: 'beta', associations: [{ type: 'Datamuse: associated with' }] },
-      ]),
-      beta: word('beta', [
-        {
-          name: 'alpha',
-          associations: [{ type: 'Datamuse: associated with' }],
-        },
-      ]),
-      // gamma not linked to beta to exercise optional final path
-      gamma: word('gamma', []),
-    };
-    fetchMock.mockImplementation(async (input: unknown) => {
-      const url = typeof input === 'string' ? input : String(input);
-      const name = url.split('/').pop() as string;
-      const payload = words[name];
-      return new Response(JSON.stringify(payload));
-    });
-
-    // Now that dynamoose is mocked, construct the controller
-    const hopController = startController();
-
-    const { body } = await server.executeOperation(
+    const response = await server.executeOperation(
       {
-        query: attemptHopMutation,
-        variables: input,
+        query: hopsQuery,
+        variables: { query: queryInput },
       },
       {
         contextValue: {
-          hopController,
-          userId: userInfo.ownerId,
-          gameId: userInfo.gameId,
-          attemptId: userInfo.attemptId,
-          event: {
-            headers: {
-              'x-user-id': userInfo.ownerId,
-              'x-game-id': userInfo.gameId,
-              'x-attempt-id': userInfo.attemptId,
-            },
-            requestContext: { requestId: 'req-1' },
-          },
+          hopController: startController(),
+          ...userInfo,
         },
       },
     );
 
-    if (body.kind !== 'single') {
-      throw new Error('Expected a single GraphQL response');
+    expect(response.body.kind).toBe('single');
+    if (response.body.kind === 'single') {
+      expect(response.body.singleResult.errors).toBeUndefined();
+      expect(response.body.singleResult.data).toBeDefined();
+
+      const hops = response.body.singleResult.data?.hops as Array<{
+        id: string;
+        from: string;
+        to: string;
+        gameId: string;
+      }>;
+      expect(hops).toHaveLength(3); // Mock returns all hops (not filtered)
+      expect(hops[0]).toMatchObject({
+        id: 'hop-1',
+        from: 'alpha',
+        to: 'beta',
+        gameId: 'game-1',
+      });
+      expect(hops[1]).toMatchObject({
+        id: 'hop-2',
+        from: 'beta',
+        to: 'gamma',
+        gameId: 'game-1',
+      });
+      expect(hops[2]).toMatchObject({
+        id: 'hop-3',
+        from: 'delta',
+        to: 'epsilon',
+        gameId: 'game-2',
+      });
     }
+  });
 
-    const { singleResult } = body;
+  it('queries a single hop by id without error', async () => {
+    const server = getGraphqlServer();
 
-    expect(singleResult.errors).toBeUndefined();
-    expect(singleResult.data).toEqual({
-      attemptHop: [
-        {
-          id: expect.any(String),
-          from: input.from,
-          to: input.to,
-          linkKey: `${input.from}::${input.to}`,
-          ownerId: userInfo.ownerId,
-          gameId: userInfo.gameId,
-        },
-      ],
+    // Pre-populate mock hops
+    mockHops.push({
+      id: 'hop-1',
+      from: 'alpha',
+      to: 'beta',
+      linkKey: 'alpha::beta',
+      ownerId: 'owner-1',
+      gameId: 'game-1',
+      attemptId: 'attempt-1',
+      associationsKey: 'test-association',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     });
-    // Verify link was created in our in-memory store and words were fetched
-    expect(Object.keys(mockLinks)).toContain('alpha::beta');
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const hopQuery = gql`
+      query GetHop($id: ID!) {
+        hop(id: $id) {
+          id
+          from
+          to
+          linkKey
+          ownerId
+          gameId
+        }
+      }
+    `;
+
+    const response = await server.executeOperation(
+      {
+        query: hopQuery,
+        variables: { id: 'hop-1' },
+      },
+      {
+        contextValue: {
+          hopController: startController(),
+        },
+      },
+    );
+
+    expect(response.body.kind).toBe('single');
+    if (response.body.kind === 'single') {
+      expect(response.body.singleResult.errors).toBeUndefined();
+      expect(response.body.singleResult.data?.hop).toMatchObject({
+        id: 'hop-1',
+        from: 'alpha',
+        to: 'beta',
+        gameId: 'game-1',
+      });
+    }
   });
 });

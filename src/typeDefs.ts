@@ -10,10 +10,6 @@ export default gql`
       import: ["@key", "@shareable"]
     )
 
-  type Affirmative {
-    ok: Boolean! @shareable
-  }
-
   type Hop @key(fields: "id") {
     id: ID!
     name: String
@@ -40,10 +36,5 @@ export default gql`
   type Query {
     hop(id: ID!): Hop
     hops(query: HopQueryInput!): [Hop]
-  }
-
-  type Mutation {
-    attemptHop(from: ID!, to: ID!, final: ID!): [Hop]
-    deleteHops(ids: [String!]!): Affirmative
   }
 `;

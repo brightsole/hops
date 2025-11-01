@@ -2,10 +2,7 @@ import { model } from 'dynamoose';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { Context, DBHop, DBLink, DBHopModel, DBLinkModel } from './types';
-import type {
-  HopQueryInput,
-  MutationAttemptHopArgs,
-} from './generated/graphql';
+import type { HopQueryInput } from './generated/graphql';
 import { getLink } from './getLink';
 import HopSchema from './Hop.schema';
 import LinkSchema from './Link.schema';
@@ -20,8 +17,6 @@ const hopCache = new LRUCache<string, DBHop>({
 const queryCache = new LRUCache<string, DBHop[]>({
   max: 100,
 });
-
-const isPresent = <T>(value: T | null | undefined): value is T => value != null;
 
 export const createHopController = (
   HopModel: DBHopModel,
@@ -69,25 +64,17 @@ export const createHopController = (
   testLink: (from: string, to: string) => getLink(linkModel, from, to), // exposed for game submission checks
 
   attemptHop: async (
-    { from, to, final }: MutationAttemptHopArgs,
+    { from, to }: { from: string; to: string },
     userInfo: Pick<Context, 'userId' | 'gameId' | 'attemptId'>,
-  ): Promise<DBHop[]> => {
+  ): Promise<DBHop> => {
     const normalTo = normalizeWord(to);
     const normalFrom = normalizeWord(from);
-    const normalFinal = normalizeWord(final);
 
-    if (normalFrom === normalTo || normalTo === normalFinal) {
+    if (normalFrom === normalTo) {
       throw new Error('Unable to guess the same words');
     }
 
     const firstLink = await getLink(linkModel, normalFrom, normalTo);
-
-    let finalAssociation = null;
-    try {
-      finalAssociation = await getLink(linkModel, normalTo, normalFinal);
-    } catch {
-      /* do nothing, final not guaranteed */
-    }
 
     const hop = await HopModel.create({
       linkKey: firstLink.id,
@@ -99,36 +86,9 @@ export const createHopController = (
       attemptId: userInfo.attemptId,
       id: nanoid(),
     });
-    let finalHop = null;
-    if (finalAssociation) {
-      finalHop = await HopModel.create({
-        id: nanoid(),
-        linkKey: finalAssociation.id,
-        associationsKey: finalAssociation.associationsKey,
-        from: normalTo,
-        to: normalFinal,
-        isFinal: true,
-        ownerId: userInfo.userId,
-        gameId: userInfo.gameId,
-        attemptId: userInfo.attemptId,
-      });
-      await fetch(`${env.solvesQueueUrl}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: userInfo.attemptId,
-          ownerId: userInfo.userId,
-          gameId: userInfo.gameId,
-          finalHopId: finalHop.id,
-        }),
-      });
-    }
 
-    const results = [hop, finalHop].filter(isPresent);
-    results.forEach((item: DBHop) => hopCache.set(item.id, item));
-    return results;
+    hopCache.set(hop.id, hop);
+    return hop;
   },
 
   removeMany: async (ids: string[]) => {

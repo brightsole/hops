@@ -64,7 +64,6 @@ const callResolver = async <Result, Parent, Args>(
 
 describe('Resolvers', () => {
   const Query = resolvers.Query!;
-  const Mutation = resolvers.Mutation!;
   const Hop = resolvers.Hop!;
 
   describe('Query.hop', () => {
@@ -102,54 +101,6 @@ describe('Resolvers', () => {
 
       expect(hopController.query).toHaveBeenCalledWith({ ownerId: 'owner-1' });
       expect(result).toEqual([{ id: 'h-1' }]);
-    });
-  });
-
-  describe('Mutation.attemptHop', () => {
-    it('delegates to hopController.attemptHop with user context', async () => {
-      const hopController = buildHopController({
-        attemptHop: jest.fn().mockResolvedValue([{ id: 'h-1' }]),
-      });
-
-      const ctx = buildContext({
-        hopController,
-        userId: 'u-1',
-        gameId: 'g-1',
-        attemptId: 'a-1',
-      });
-
-      const result = await callResolver(
-        Mutation.attemptHop,
-        {},
-        { from: 'alpha', to: 'beta', final: 'gamma' },
-        ctx,
-        'Mutation.attemptHop',
-      );
-
-      expect(hopController.attemptHop).toHaveBeenCalledWith(
-        { from: 'alpha', to: 'beta', final: 'gamma' },
-        { userId: 'u-1', gameId: 'g-1', attemptId: 'a-1' },
-      );
-      expect(result).toEqual([{ id: 'h-1' }]);
-    });
-  });
-
-  describe('Mutation.deleteHops', () => {
-    it('delegates to hopController.removeMany', async () => {
-      const hopController = buildHopController({
-        removeMany: jest.fn().mockResolvedValue({ ok: true }),
-      });
-
-      const result = await callResolver(
-        Mutation.deleteHops,
-        {},
-        { ids: ['x', 'y'] },
-        buildContext({ hopController }),
-        'Mutation.deleteHops',
-      );
-
-      expect(hopController.removeMany).toHaveBeenCalledWith(['x', 'y']);
-      expect(result).toEqual({ ok: true });
     });
   });
 

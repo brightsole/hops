@@ -33,6 +33,31 @@ export const createRestApp = () => {
     res.json(hops);
   });
 
+  app.post('/hops', async (req, res) => {
+    const { from, to } = req.body;
+
+    // Extract user context from headers
+    const userId = req.headers['x-user-id'] as string;
+    const gameId = req.headers['x-game-id'] as string;
+    const attemptId = req.headers['x-attempt-id'] as string;
+
+    if (!userId || !gameId || !attemptId) {
+      throw new Error('Missing required headers');
+    }
+
+    try {
+      const hop = await hopsController.attemptHop(
+        { from, to },
+        { userId, gameId, attemptId },
+      );
+      res.status(201).json(hop);
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to create hop',
+      });
+    }
+  });
+
   // technically we don't care about the response, other than errors
   app.post('/hops/linked', async (req, res) => {
     const { from, to } = req.body;

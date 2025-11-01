@@ -150,87 +150,6 @@ describe('Hop controller', () => {
     expect(third).toEqual(items);
   });
 
-  it('attemptHop creates one hop when final is absent', async () => {
-    const HopModel = createHopModel();
-    const LinkModel = createLinkModel();
-
-    getLinkMock
-      .mockResolvedValueOnce({
-        id: 'alpha::beta',
-        associationsKey: 'a|b',
-        version: 1,
-        createdAt: 0,
-        updatedAt: 0,
-      })
-      .mockRejectedValueOnce(new Error('no final link'));
-
-    const controller = createHopController(HopModel, LinkModel);
-
-    const result = await controller.attemptHop(
-      { from: 'alpha', to: 'beta', final: 'gamma' },
-      { userId: 'u', gameId: 'g', attemptId: 'x' },
-    );
-
-    expect(getLinkMock).toHaveBeenCalledTimes(2);
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      linkKey: 'alpha::beta',
-      from: 'alpha',
-      to: 'beta',
-      ownerId: 'u',
-      gameId: 'g',
-      attemptId: 'x',
-    });
-
-    // cached by id
-    const again = await createHopController(HopModel, LinkModel).getById(
-      result[0].id,
-    );
-    expect(HopModel.get).not.toHaveBeenCalled();
-    expect(again).toMatchObject({ id: result[0].id });
-  });
-
-  it('attemptHop creates two hops when final exists', async () => {
-    const HopModel = createHopModel();
-    const LinkModel = createLinkModel();
-
-    getLinkMock
-      .mockResolvedValueOnce({
-        id: 'alpha::beta',
-        associationsKey: 'a|b',
-        version: 1,
-        createdAt: 0,
-        updatedAt: 0,
-      })
-      .mockResolvedValueOnce({
-        id: 'beta::gamma',
-        associationsKey: 'b|g',
-        version: 1,
-        createdAt: 0,
-        updatedAt: 0,
-      });
-
-    const controller = createHopController(HopModel, LinkModel);
-
-    const result = await controller.attemptHop(
-      { from: 'alpha', to: 'beta', final: 'gamma' },
-      { userId: 'u', gameId: 'g', attemptId: 'x' },
-    );
-
-    expect(getLinkMock).toHaveBeenCalledTimes(2);
-    expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({
-      linkKey: 'alpha::beta',
-      from: 'alpha',
-      to: 'beta',
-    });
-    expect(result[1]).toMatchObject({
-      linkKey: 'beta::gamma',
-      from: 'beta',
-      to: 'gamma',
-    });
-  });
-
   it('removeMany delegates to batchDelete and evicts cache', async () => {
     const HopModel = createHopModel();
     const LinkModel = createLinkModel();
@@ -255,7 +174,7 @@ describe('Hop controller', () => {
 
     await expect(
       controller.attemptHop(
-        { from: 'alpha', to: 'alpha', final: 'beta' },
+        { from: 'alpha', to: 'alpha' },
         { userId: 'u', gameId: 'g', attemptId: 'x' },
       ),
     ).rejects.toThrow('Unable to guess the same words');
@@ -264,19 +183,24 @@ describe('Hop controller', () => {
     expect(HopModel.create).not.toHaveBeenCalled();
   });
 
-  it('attemptHop throws error when to and final are the same', async () => {
+  it('testLink delegates to getLink', async () => {
     const HopModel = createHopModel();
     const LinkModel = createLinkModel();
     const controller = createHopController(HopModel, LinkModel);
 
-    await expect(
-      controller.attemptHop(
-        { from: 'alpha', to: 'beta', final: 'beta' },
-        { userId: 'u', gameId: 'g', attemptId: 'x' },
-      ),
-    ).rejects.toThrow('Unable to guess the same words');
+    const mockLink = {
+      id: 'alpha::beta',
+      associationsKey: 'a|b',
+      version: 1,
+      createdAt: 0,
+      updatedAt: 0,
+    };
 
-    expect(getLinkMock).not.toHaveBeenCalled();
-    expect(HopModel.create).not.toHaveBeenCalled();
+    getLinkMock.mockResolvedValue(mockLink);
+
+    const result = await controller.testLink('alpha', 'beta');
+
+    expect(getLinkMock).toHaveBeenCalledWith(LinkModel, 'alpha', 'beta');
+    expect(result).toBe(mockLink);
   });
 });
