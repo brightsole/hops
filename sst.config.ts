@@ -111,7 +111,8 @@ export default $config({
     // minimal non-user records can make for fun charts
 
     return {
-      apiUrl: api.url,
+      graphUrl: `${api.url}/graphql`,
+      restApiUrl: `${api.url}/hops`,
       hopsTableName: hopsTable.name,
       linksTableName: linksTable.name,
     };
