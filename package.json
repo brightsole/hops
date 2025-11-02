@@ -39,7 +39,7 @@
     "typescript-eslint": "^8.46.2"
   },
   "dependencies": {
-    "@apollo/server": "^5.1.0",
+    "@apollo/server": "^5.0.0",
     "@apollo/subgraph": "^2.11.3",
     "@as-integrations/aws-lambda": "^4.0.1",
     "@vendia/serverless-express": "^4.12.6",
