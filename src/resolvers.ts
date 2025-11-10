@@ -9,6 +9,14 @@ const resolvers: Resolvers = {
     hops: (_parent, { query }, { hopController }) => hopController.query(query),
   },
 
+  Mutation: {
+    // TODO: remove when done with automated tests & prod deployment
+    adminCheckLink: async (_parent, { from, to }, { hopController }) => {
+      await hopController.testLink(from, to);
+      return { ok: true };
+    },
+  },
+
   Hop: {
     // for finding out the info of the other items in the system
     __resolveReference: ({ id }, { hopController }) =>

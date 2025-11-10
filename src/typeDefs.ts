@@ -33,8 +33,16 @@ export default gql`
     associationsKey: String
   }
 
+  type Affirmative {
+    ok: Boolean! @shareable
+  }
+
   type Query {
     hop(id: ID!): Hop
     hops(query: HopQueryInput!): [Hop]
+  }
+
+  type Mutation {
+    adminCheckLink(from: ID!, to: ID!): Affirmative
   }
 `;

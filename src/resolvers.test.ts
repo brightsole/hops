@@ -15,6 +15,7 @@ const mockHopControllerFactory = jest.fn(
       query: jest.fn(),
       attemptHop: jest.fn(),
       removeMany: jest.fn(),
+      testLink: jest.fn(),
       ...overrides,
     }) as unknown as HopControllerMock,
 );
@@ -64,6 +65,7 @@ const callResolver = async <Result, Parent, Args>(
 
 describe('Resolvers', () => {
   const Query = resolvers.Query!;
+  const Mutation = resolvers.Mutation!;
   const Hop = resolvers.Hop!;
 
   describe('Query.hop', () => {
@@ -101,6 +103,49 @@ describe('Resolvers', () => {
 
       expect(hopController.query).toHaveBeenCalledWith({ ownerId: 'owner-1' });
       expect(result).toEqual([{ id: 'h-1' }]);
+    });
+  });
+
+  describe('Mutation.adminCheckLink', () => {
+    it('returns ok: true when link exists', async () => {
+      const hopController = buildHopController({
+        testLink: jest.fn().mockResolvedValue({
+          id: 'alpha::beta',
+          associationsKey: 'a|b',
+          version: 1,
+          createdAt: 0,
+          updatedAt: 0,
+        }),
+      });
+
+      const result = await callResolver(
+        Mutation.adminCheckLink,
+        {},
+        { from: 'alpha', to: 'beta' },
+        buildContext({ hopController }),
+        'Mutation.adminCheckLink',
+      );
+
+      expect(hopController.testLink).toHaveBeenCalledWith('alpha', 'beta');
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('throws when link does not exist', async () => {
+      const hopController = buildHopController({
+        testLink: jest.fn().mockRejectedValue(new Error('No link found')),
+      });
+
+      await expect(
+        callResolver(
+          Mutation.adminCheckLink,
+          {},
+          { from: 'alpha', to: 'gamma' },
+          buildContext({ hopController }),
+          'Mutation.adminCheckLink',
+        ),
+      ).rejects.toThrow('No link found');
+
+      expect(hopController.testLink).toHaveBeenCalledWith('alpha', 'gamma');
     });
   });
 
