@@ -1,6 +1,7 @@
 import serverlessExpress from '@vendia/serverless-express';
 import express, { Request } from 'express';
 import { startController } from './controller';
+import env from './env';
 
 export const createRestApp = () => {
   const app = express();
@@ -17,6 +18,14 @@ export const createRestApp = () => {
       return;
     }
 
+    next();
+  });
+
+  app.use((req, res, next) => {
+    if (req.headers[env.authHeaderName] !== env.authHeaderValue) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     next();
   });
 

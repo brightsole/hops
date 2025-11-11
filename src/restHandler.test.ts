@@ -2,6 +2,7 @@ import http from 'node:http';
 import { nanoid } from 'nanoid';
 import { startController } from './controller';
 import { createRestApp } from './restHandler';
+import env from './env';
 
 jest.mock('./controller', () => ({
   startController: jest.fn(),
@@ -54,6 +55,7 @@ describe('REST handler', () => {
               method: 'GET',
               headers: {
                 id: 'owner-1',
+                [env.authHeaderName]: env.authHeaderValue,
               },
             },
             (res) => {
@@ -146,6 +148,9 @@ describe('REST handler', () => {
               port: serverAddress.port,
               path: `/hops?attemptId=${attemptId}`,
               method: 'DELETE',
+              headers: {
+                [env.authHeaderName]: env.authHeaderValue,
+              },
             },
             (res) => {
               const chunks: Buffer[] = [];

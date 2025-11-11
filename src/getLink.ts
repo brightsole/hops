@@ -14,7 +14,11 @@ const fetchWord = async (name: string): Promise<Word> => {
   const cached = wordCache.get(name);
   if (cached) return cached;
 
-  const response = await fetch(`${env.wordsApiUrl}/words/${name}`);
+  const response = await fetch(`${env.wordsApiUrl}/words/${name}`, {
+    headers: {
+      [env.authHeaderName]: env.authHeaderValue,
+    },
+  });
   if (!response.ok) throw new Error('Word not found: ' + name);
 
   const word = await response.json();

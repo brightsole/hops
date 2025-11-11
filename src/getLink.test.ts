@@ -11,6 +11,8 @@ jest.mock('./env', () => ({
   __esModule: true,
   default: {
     wordsApiUrl: 'http://words.example.test',
+    authHeaderName: 'x-internal-secret',
+    authHeaderValue: 'test-secret-value-123',
   },
 }));
 
@@ -168,10 +170,20 @@ describe('getLink', () => {
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
       'http://words.example.test/words/beta3',
+      {
+        headers: {
+          'x-internal-secret': 'test-secret-value-123',
+        },
+      },
     );
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
       'http://words.example.test/words/alpha3',
+      {
+        headers: {
+          'x-internal-secret': 'test-secret-value-123',
+        },
+      },
     );
 
     // Called with input order (fromWord=beta, toWord=alpha)
@@ -259,6 +271,11 @@ describe('getLink', () => {
     expect(mockFetch).toHaveBeenNthCalledWith(
       3,
       'http://words.example.test/words/gamma5',
+      {
+        headers: {
+          'x-internal-secret': 'test-secret-value-123',
+        },
+      },
     );
   });
 

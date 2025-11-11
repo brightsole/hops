@@ -54,4 +54,4 @@
 </pre>
 
 ## TODO
-1. lock it down
+1. would be really nice to tell the queries/mutations if this was a cold start
