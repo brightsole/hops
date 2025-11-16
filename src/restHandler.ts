@@ -46,18 +46,18 @@ export const createRestApp = () => {
     const { from, to } = req.body;
 
     // Extract user context from headers
-    const userId = req.headers['x-user-id'] as string;
+    const ownerId = req.headers['x-owner-id'] as string;
     const gameId = req.headers['x-game-id'] as string;
     const attemptId = req.headers['x-attempt-id'] as string;
 
-    if (!userId || !gameId || !attemptId) {
+    if (!ownerId || !gameId || !attemptId) {
       throw new Error('Missing required headers');
     }
 
     try {
       const hop = await hopsController.attemptHop(
         { from, to },
-        { userId, gameId, attemptId },
+        { ownerId, gameId, attemptId },
       );
       res.status(201).json(hop);
     } catch (error) {

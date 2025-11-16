@@ -34,7 +34,7 @@ const buildContext = (overrides: ContextOverrides = {}): Context => {
   return {
     event: {},
     hopController,
-    userId: 'user-1',
+    ownerId: 'user-1',
     gameId: 'game-1',
     attemptId: 'attempt-1',
     ...rest,

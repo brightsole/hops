@@ -9,7 +9,7 @@ export const setContext: ContextFunction<
   BaseContext
 > = async ({ event, context }): Promise<Context> => {
   // todo fix this better with x-blahs and getters
-  const userId = event.headers['x-user-id'];
+  const ownerId = event.headers['x-owner-id'];
   const gameId = event.headers['x-game-id'];
   const attemptId = event.headers['x-attempt-id'];
   const hopController = startController();
@@ -30,7 +30,7 @@ export const setContext: ContextFunction<
 
   return {
     ...context,
-    userId,
+    ownerId,
     gameId,
     attemptId,
     event,

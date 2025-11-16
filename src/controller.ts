@@ -65,7 +65,7 @@ export const createHopController = (
 
   attemptHop: async (
     { from, to }: { from: string; to: string },
-    userInfo: Pick<Context, 'userId' | 'gameId' | 'attemptId'>,
+    userInfo: Pick<Context, 'ownerId' | 'gameId' | 'attemptId'>,
   ): Promise<DBHop> => {
     const normalTo = normalizeWord(to);
     const normalFrom = normalizeWord(from);
@@ -81,7 +81,7 @@ export const createHopController = (
       associationsKey: firstLink.associationsKey,
       from: normalFrom,
       to: normalTo,
-      ownerId: userInfo.userId,
+      ownerId: userInfo.ownerId,
       gameId: userInfo.gameId,
       attemptId: userInfo.attemptId,
       id: nanoid(),

@@ -62,7 +62,7 @@ export type DBLinkModel = Model<DBLink>;
 export type Context = {
   hopController: ReturnType<typeof createHopController>;
   attemptId?: string;
-  userId?: string;
+  ownerId?: string;
   gameId?: string;
   event: unknown;
 };

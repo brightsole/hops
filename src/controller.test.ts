@@ -175,7 +175,7 @@ describe('Hop controller', () => {
     await expect(
       controller.attemptHop(
         { from: 'alpha', to: 'alpha' },
-        { userId: 'u', gameId: 'g', attemptId: 'x' },
+        { ownerId: 'u', gameId: 'g', attemptId: 'x' },
       ),
     ).rejects.toThrow('Unable to guess the same words');
 
